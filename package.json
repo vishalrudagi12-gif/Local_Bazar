@@ -1,0 +1,22 @@
+{
+  "name": "local-bazar-marketplace",
+  "version": "1.0.0",
+  "description": "Hyperlocal digital marketplace empowering small enterprises to build an online identity, manage inventory, process orders, and connect with local buyers.",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "nodemon server/server.js",
+    "client": "npx serve client -l 3000"
+  },
+  "keywords": ["ecommerce", "local-business", "hyperlocal", "marketplace", "small-enterprise", "express", "tailwind"],
+  "author": "Vishal Rudagi",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
