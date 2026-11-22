@@ -1061,13 +1061,31 @@ function renderSellerOrdersTable(statusFilter = 'all') {
       <td class="px-5 py-3.5">${o.items.map(i => `<span class="block">${i.name} (x${i.quantity})</span>`).join('')}</td>
       <td class="px-5 py-3.5">${o.deliveryType === 'pickup' ? '🛍️ In-Store Pickup' : '🚚 Home Delivery'}</td>
       <td class="px-5 py-3.5 font-extrabold text-slate-900">₹${o.total}</td>
-      <td class="px-5 py-3.5 font-bold uppercase text-[10px] text-brand-700">${o.status}</td>
-      <td class="px-5 py-3.5 text-right">
-        <select onchange="handleUpdateOrderStatus('${o.id}', this.value)" class="p-1 rounded border border-slate-200 bg-white font-bold text-xs">
-          <option value="confirmed" ${o.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
-          <option value="ready" ${o.status === 'ready' ? 'selected' : ''}>Ready for Pickup</option>
-          <option value="delivered" ${o.status === 'delivered' ? 'selected' : ''}>Delivered</option>
-          <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+      <td class="px-5 py-3.5">
+        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+          o.status === 'confirmed' || o.status === 'accepted' ? 'bg-blue-100 text-blue-800' :
+          o.status === 'shipped' || o.status === 'ready' ? 'bg-amber-100 text-amber-800' :
+          o.status === 'delivered' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+        }">
+          ${o.status === 'confirmed' ? 'Accepted' : o.status === 'ready' ? 'Shipped/Ready' : o.status}
+        </span>
+      </td>
+      <td class="px-5 py-3.5 text-right space-x-1">
+        ${(o.status === 'placed' || o.status === 'confirmed' || o.status === 'accepted') ? `
+          <button onclick="handleUpdateOrderStatus('${o.id}', 'shipped')" title="Mark Shipped" class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-2xs">
+            <i class="fa-solid fa-truck-fast mr-1"></i> Ship
+          </button>
+        ` : ''}
+        ${(o.status === 'shipped' || o.status === 'ready') ? `
+          <button onclick="handleUpdateOrderStatus('${o.id}', 'delivered')" title="Mark Delivered" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs">
+            <i class="fa-solid fa-circle-check mr-1"></i> Deliver
+          </button>
+        ` : ''}
+        <select onchange="handleUpdateOrderStatus('${o.id}', this.value)" class="p-1 rounded-lg border border-slate-200 bg-white font-bold text-xs text-slate-700 outline-none">
+          <option value="confirmed" ${o.status === 'confirmed' || o.status === 'accepted' ? 'selected' : ''}>✅ Accepted</option>
+          <option value="shipped" ${o.status === 'shipped' || o.status === 'ready' ? 'selected' : ''}>🚚 Shipped</option>
+          <option value="delivered" ${o.status === 'delivered' ? 'selected' : ''}>🎉 Delivered</option>
+          <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>❌ Cancelled</option>
         </select>
       </td>
     </tr>
@@ -1111,9 +1129,12 @@ function renderSellerProductsTable() {
       </td>
       <td class="px-5 py-3.5 font-semibold text-slate-600">${p.salesCount || 0}</td>
       <td class="px-5 py-3.5 text-right space-x-1">
-        <button onclick="quickAdjustStock('${p.id}', 5)" title="Add 5" class="px-2 py-1 rounded bg-slate-100 font-bold">+5</button>
-        <button onclick="quickAdjustStock('${p.id}', -1)" title="Remove 1" class="px-2 py-1 rounded bg-slate-100 font-bold">-1</button>
-        <button onclick="openEditProductModal('${p.id}')" class="px-2 py-1 rounded bg-brand-50 text-brand-700 font-bold">Edit</button>
+        <button onclick="quickAdjustStock('${p.id}', 5)" title="Add 5 stock units" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs">+5</button>
+        <button onclick="quickAdjustStock('${p.id}', -1)" title="Remove 1 stock unit" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs">-1</button>
+        <button onclick="openEditProductModal('${p.id}')" title="Edit details" class="px-2.5 py-1 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold text-xs">Edit</button>
+        <button onclick="deleteProduct('${p.id}')" title="Delete product permanently" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs">
+          <i class="fa-solid fa-trash-can"></i> Delete
+        </button>
       </td>
     </tr>
   `).join('');
@@ -1126,6 +1147,16 @@ function quickAdjustStock(productId, delta) {
   window.store.updateProduct(productId, { stock: newStock });
   showToast(`Stock updated to ${newStock} units.`, 'info');
   renderSellerDashboard();
+}
+
+function deleteProduct(productId) {
+  const prod = window.store.getProduct(productId);
+  const name = prod?.name || 'this product';
+  if (confirm(`Are you sure you want to delete '${name}' from your shop catalog?`)) {
+    window.store.deleteProduct(productId);
+    showToast(`Deleted '${name}' from your shop catalog.`, 'info');
+    renderSellerDashboard();
+  }
 }
 
 function openAddProductModal() {

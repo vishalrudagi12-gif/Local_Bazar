@@ -437,9 +437,9 @@
           </div>
           <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-semibold">
             <button onclick="filterSellerOrders('all')" class="order-filter-btn px-2.5 py-1 rounded bg-white text-slate-900 shadow-sm">All</button>
-            <button onclick="filterSellerOrders('confirmed')" class="order-filter-btn px-2.5 py-1 rounded text-slate-600 hover:text-slate-900">New</button>
-            <button onclick="filterSellerOrders('ready')" class="order-filter-btn px-2.5 py-1 rounded text-slate-600 hover:text-slate-900">Ready</button>
-            <button onclick="filterSellerOrders('delivered')" class="order-filter-btn px-2.5 py-1 rounded text-slate-600 hover:text-slate-900">Delivered</button>
+            <button onclick="filterSellerOrders('confirmed')" class="order-filter-btn px-2.5 py-1 rounded text-slate-600 hover:text-slate-900">1. Accepted</button>
+            <button onclick="filterSellerOrders('shipped')" class="order-filter-btn px-2.5 py-1 rounded text-slate-600 hover:text-slate-900">2. Shipped</button>
+            <button onclick="filterSellerOrders('delivered')" class="order-filter-btn px-2.5 py-1 rounded text-slate-600 hover:text-slate-900">3. Delivered</button>
           </div>
         </div>
         <div class="overflow-x-auto">
@@ -475,7 +475,7 @@
                 <th class="px-5 py-3">Price</th>
                 <th class="px-5 py-3">Stock Units</th>
                 <th class="px-5 py-3">Sales</th>
-                <th class="px-5 py-3 text-right">Quick Restock</th>
+                <th class="px-5 py-3 text-right">Actions & Delete</th>
               </tr>
             </thead>
             <tbody id="seller-products-table-body" class="divide-y divide-slate-100 font-medium"></tbody>
