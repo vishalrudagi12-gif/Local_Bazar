@@ -1,0 +1,102 @@
+{
+  "shops": [
+    {
+      "id": "shop-1",
+      "name": "The Crust & Crumb Bakery",
+      "tagline": "Slow-fermented sourdough & wood-fired French pastries",
+      "owner": "Elena Rostova",
+      "phone": "+91 98765 43210",
+      "whatsapp": "919876543210",
+      "neighborhood": "Downtown Arts Quarter",
+      "distanceKm": 1.2,
+      "address": "42 Baker's Alley, Arts Quarter",
+      "hours": "Tue - Sun: 7:00 AM - 4:00 PM",
+      "rating": 4.9,
+      "reviewCount": 142,
+      "verified": true,
+      "banner": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1200&q=80",
+      "avatar": "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=200&q=80",
+      "story": "Started in Elena's home kitchen in 2021 using her great-grandmother's 60-year-old sourdough starter.",
+      "announcements": [
+        {
+          "id": "ann-1",
+          "text": "Fresh batch of cardamom morning buns just out! 🥐",
+          "date": "Today"
+        }
+      ]
+    },
+    {
+      "id": "shop-2",
+      "name": "Clay & Kiln Studio",
+      "tagline": "Hand-thrown stoneware & glazed ceramic homeware",
+      "owner": "Aarav Sharma",
+      "phone": "+91 98221 11223",
+      "whatsapp": "919822111223",
+      "neighborhood": "Old Town Heritage",
+      "distanceKm": 2.8,
+      "address": "15 Potter's Lane, Old Town",
+      "hours": "Wed - Mon: 10:00 AM - 7:00 PM",
+      "rating": 4.8,
+      "reviewCount": 96,
+      "verified": true,
+      "banner": "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=1200&q=80",
+      "avatar": "https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&w=200&q=80",
+      "story": "Aarav creates functional art inspired by local river clay and mineral glazes.",
+      "announcements": []
+    }
+  ],
+  "products": [
+    {
+      "id": "prod-1",
+      "shopId": "shop-1",
+      "name": "Heirloom Country Sourdough Loaf",
+      "category": "bakery",
+      "price": 240,
+      "originalPrice": 280,
+      "stock": 14,
+      "unit": "800g loaf",
+      "description": "Naturally leavened with wild yeast, fermented for 36 hours.",
+      "image": "https://images.unsplash.com/photo-1589367920969-ab8e050bbb04?auto=format&fit=crop&w=800&q=80",
+      "rating": 4.95,
+      "salesCount": 342
+    },
+    {
+      "id": "prod-2",
+      "shopId": "shop-1",
+      "name": "Cardamom Orange Morning Buns (Pack of 2)",
+      "category": "bakery",
+      "price": 220,
+      "originalPrice": 250,
+      "stock": 4,
+      "unit": "Pack of 2",
+      "description": "Flaky laminated croissant dough rolled with crushed green cardamom.",
+      "image": "https://images.unsplash.com/photo-1509365465985-25d11c17e812?auto=format&fit=crop&w=800&q=80",
+      "rating": 4.9,
+      "salesCount": 184
+    }
+  ],
+  "orders": [
+    {
+      "id": "ORD-9412",
+      "customerName": "Aditi Rao",
+      "customerPhone": "+91 99887 66554",
+      "deliveryType": "delivery",
+      "deliveryAddress": "Flat 402, Lotus Court, Arts Quarter",
+      "status": "confirmed",
+      "date": "2026-11-22T13:33:53.165Z",
+      "items": [
+        {
+          "productId": "prod-1",
+          "shopId": "shop-1",
+          "name": "Heirloom Country Sourdough Loaf",
+          "price": 240,
+          "quantity": 2
+        }
+      ],
+      "total": 520,
+      "shopId": "shop-1"
+    }
+  ],
+  "inquiries": [],
+  "reviews": []
+}

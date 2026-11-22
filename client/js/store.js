@@ -1,7 +1,7 @@
-// LocalBazar Reactive Client Store & State Manager
+// LocalBazar Reactive Client Store & State Manager (Supports Customer, Seller, Admin)
 class LocalBazarStore {
   constructor() {
-    this.STORAGE_KEY = 'localbazar_state_v1';
+    this.STORAGE_KEY = 'localbazar_state_v2';
     this.init();
   }
 
@@ -15,7 +15,8 @@ class LocalBazarStore {
         this.orders = parsed.orders || this.getDefaultOrders();
         this.reviews = parsed.reviews || MOCK_DATA.reviews;
         this.inquiries = parsed.inquiries || this.getDefaultInquiries();
-        this.currentUser = parsed.currentUser || null;
+        this.currentUser = parsed.currentUser || this.getDemoUsers().customer;
+        this.platformAnnouncement = parsed.platformAnnouncement || "🎉 Welcome to LocalBazar: Celebrating 30+ neighbourhood artisans and makers in your city!";
       } catch (e) {
         this.resetToDefaults();
       }
@@ -28,18 +29,42 @@ class LocalBazarStore {
     this.recentlyViewed = JSON.parse(sessionStorage.getItem('localbazar_viewed') || '[]');
   }
 
+  getDemoUsers() {
+    return {
+      customer: {
+        id: "cust-1",
+        name: "Aditi Rao",
+        email: "aditi@localbazar.com",
+        role: "customer",
+        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80"
+      },
+      seller: {
+        id: "seller-1",
+        name: "Elena Rostova",
+        email: "elena@crustcrumb.local",
+        role: "seller",
+        shopId: "shop-1",
+        avatar: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=150&q=80"
+      },
+      admin: {
+        id: "admin-1",
+        name: "Vikram Rathore",
+        email: "admin@localbazar.gov",
+        role: "admin",
+        title: "City Marketplace Director",
+        avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80"
+      }
+    };
+  }
+
   resetToDefaults() {
     this.shops = JSON.parse(JSON.stringify(MOCK_DATA.shops));
     this.products = JSON.parse(JSON.stringify(MOCK_DATA.products));
     this.orders = this.getDefaultOrders();
     this.reviews = JSON.parse(JSON.stringify(MOCK_DATA.reviews));
     this.inquiries = this.getDefaultInquiries();
-    this.currentUser = {
-      id: "cust-1",
-      name: "Aditi Rao",
-      email: "aditi@localbazar.com",
-      role: "customer"
-    };
+    this.currentUser = this.getDemoUsers().customer;
+    this.platformAnnouncement = "🎉 Welcome to LocalBazar: Free hyperlocal delivery on all neighbourhood orders this week!";
     this.save();
   }
 
@@ -50,7 +75,8 @@ class LocalBazarStore {
       orders: this.orders,
       reviews: this.reviews,
       inquiries: this.inquiries,
-      currentUser: this.currentUser
+      currentUser: this.currentUser,
+      platformAnnouncement: this.platformAnnouncement
     };
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
   }
@@ -116,6 +142,23 @@ class LocalBazarStore {
         deliveryFee: 40,
         total: 420,
         shopId: "shop-1"
+      },
+      {
+        id: "ORD-9375",
+        customerId: "cust-4",
+        customerName: "Rohan V.",
+        customerPhone: "+91 98888 77766",
+        deliveryType: "delivery",
+        deliveryAddress: "72 Lake Road, Old Town",
+        status: "delivered",
+        date: new Date(Date.now() - 3600000 * 96).toISOString(),
+        items: [
+          { productId: "prod-4", shopId: "shop-2", name: "Wabi-Sabi Stoneware Mug", price: 650, quantity: 2 }
+        ],
+        subtotal: 1300,
+        deliveryFee: 0,
+        total: 1300,
+        shopId: "shop-2"
       }
     ];
   }
@@ -149,18 +192,18 @@ class LocalBazarStore {
     ];
   }
 
-  // Auth
-  setCurrentUser(user) {
-    this.currentUser = user;
-    this.save();
+  // Role switching
+  switchRole(role) {
+    const demos = this.getDemoUsers();
+    if (demos[role]) {
+      this.currentUser = demos[role];
+      this.save();
+      return this.currentUser;
+    }
+    return this.currentUser;
   }
 
-  logout() {
-    this.currentUser = null;
-    this.save();
-  }
-
-  // Shop
+  // Shop Management (Used by Seller and Admin)
   getShop(shopId) {
     return this.shops.find(s => s.id === shopId) || null;
   }
@@ -175,13 +218,34 @@ class LocalBazarStore {
     return null;
   }
 
+  toggleVerifyShop(shopId) {
+    const shop = this.getShop(shopId);
+    if (shop) {
+      shop.verified = !shop.verified;
+      this.save();
+      return shop.verified;
+    }
+    return false;
+  }
+
+  toggleShopStatus(shopId) {
+    const shop = this.getShop(shopId);
+    if (shop) {
+      shop.suspended = !shop.suspended;
+      this.save();
+      return shop.suspended;
+    }
+    return false;
+  }
+
   addShop(shopData) {
     const newShop = {
       id: "shop-" + Date.now(),
       distanceKm: 1.5,
       rating: 5.0,
       reviewCount: 0,
-      verified: true,
+      verified: false,
+      suspended: false,
       announcements: [],
       offersDelivery: true,
       offersPickup: true,
@@ -207,9 +271,15 @@ class LocalBazarStore {
     return false;
   }
 
-  // Products
+  // Products Management
   getProducts(filters = {}) {
     let prods = [...this.products];
+
+    // Exclude suspended shops unless admin
+    if (filters.includeSuspended !== true) {
+      const suspendedShopIds = this.shops.filter(s => s.suspended).map(s => s.id);
+      prods = prods.filter(p => !suspendedShopIds.includes(p.shopId));
+    }
 
     if (filters.category && filters.category !== 'all') {
       prods = prods.filter(p => p.category === filters.category);
@@ -246,6 +316,10 @@ class LocalBazarStore {
     if (filters.fulfillment) {
       if (filters.fulfillment === 'pickup') prods = prods.filter(p => p.pickupAvailable);
       if (filters.fulfillment === 'delivery') prods = prods.filter(p => p.deliveryAvailable);
+    }
+
+    if (filters.featuredOnly) {
+      prods = prods.filter(p => p.adminFeatured);
     }
 
     // Sorting
@@ -285,6 +359,7 @@ class LocalBazarStore {
       salesCount: 0,
       pickupAvailable: true,
       deliveryAvailable: true,
+      adminFeatured: false,
       tags: [],
       ...productData
     };
@@ -301,6 +376,16 @@ class LocalBazarStore {
       return this.products[idx];
     }
     return null;
+  }
+
+  toggleFeatureProduct(id) {
+    const prod = this.getProduct(id);
+    if (prod) {
+      prod.adminFeatured = !prod.adminFeatured;
+      this.save();
+      return prod.adminFeatured;
+    }
+    return false;
   }
 
   deleteProduct(id) {
@@ -346,11 +431,7 @@ class LocalBazarStore {
     } else {
       const item = this.cart.find(i => i.productId === productId);
       if (item) {
-        if (quantity > product.stock) {
-          item.quantity = product.stock;
-        } else {
-          item.quantity = quantity;
-        }
+        item.quantity = Math.min(quantity, product.stock);
       }
     }
     this.saveCart();
@@ -425,7 +506,7 @@ class LocalBazarStore {
     const deliveryFee = deliveryType === 'pickup' ? 0 : (subtotal > 500 ? 0 : 40);
     const newOrder = {
       id: "ORD-" + Math.floor(1000 + Math.random() * 9000),
-      customerId: this.currentUser?.id || "guest",
+      customerId: this.currentUser?.id || "cust-1",
       customerName: customerName || this.currentUser?.name || "Local Neighbor",
       customerPhone: customerPhone || "+91 98765 00000",
       deliveryType,
@@ -482,18 +563,14 @@ class LocalBazarStore {
   }
 
   // Personalized Recommendations
-  getRecommendations(userContext = {}) {
+  getRecommendations() {
     const all = [...this.products];
-
-    // 1. Trending in Neighborhood
     const trending = [...all].sort((a, b) => b.salesCount - a.salesCount).slice(0, 4);
 
-    // 2. Category Affinity (based on cart or viewed)
     const activeCategories = this.cart.map(c => this.getProduct(c.productId)?.category).filter(Boolean);
     const targetCategory = activeCategories[0] || (this.recentlyViewed[0] ? this.getProduct(this.recentlyViewed[0])?.category : "bakery");
     const categoryPicks = all.filter(p => p.category === targetCategory).slice(0, 4);
 
-    // 3. Support New Local Artisans (shops with newest additions)
     const newArtisans = all.filter(p => p.shopId === "shop-2" || p.shopId === "shop-5").slice(0, 4);
 
     return {
@@ -529,11 +606,9 @@ class LocalBazarStore {
     const lowStockCount = shopProducts.filter(p => p.stock <= 5).length;
     const aov = shopOrders.length ? Math.round(totalRevenue / shopOrders.length) : 0;
 
-    // 7-day revenue trend
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const trendValues = [2400, 3100, 2800, 4200, 5600, 7100, totalRevenue ? Math.min(totalRevenue, 6200) : 4800];
 
-    // Category distribution
     const categoryCounts = {};
     shopProducts.forEach(p => {
       categoryCounts[p.category] = (categoryCounts[p.category] || 0) + 1;
@@ -553,6 +628,60 @@ class LocalBazarStore {
       },
       topProducts: [...shopProducts].sort((a, b) => b.salesCount - a.salesCount).slice(0, 5)
     };
+  }
+
+  // Admin Analytics & City Overview Calculations
+  getAdminAnalytics() {
+    let totalGMV = 0;
+    let totalUnits = 0;
+
+    this.orders.forEach(o => {
+      totalGMV += o.total;
+      o.items.forEach(i => {
+        totalUnits += i.quantity;
+      });
+    });
+
+    const platformCommission = Math.round(totalGMV * 0.05); // 5% sustainable city fair trade commission
+    const totalSellers = this.shops.length;
+    const verifiedSellers = this.shops.filter(s => s.verified).length;
+    const totalProducts = this.products.length;
+    const lowStockAcrossCity = this.products.filter(p => p.stock <= 5).length;
+
+    // Neighborhood sales share
+    const neighborhoodSales = {};
+    MOCK_DATA.neighborhoods.slice(1).forEach(n => {
+      neighborhoodSales[n] = 0;
+    });
+
+    this.orders.forEach(o => {
+      const shop = this.getShop(o.shopId);
+      if (shop && neighborhoodSales[shop.neighborhood] !== undefined) {
+        neighborhoodSales[shop.neighborhood] += o.total;
+      } else {
+        neighborhoodSales["Downtown Arts Quarter"] = (neighborhoodSales["Downtown Arts Quarter"] || 0) + o.total;
+      }
+    });
+
+    return {
+      totalGMV,
+      platformCommission,
+      totalOrders: this.orders.length,
+      totalUnits,
+      totalSellers,
+      verifiedSellers,
+      totalProducts,
+      lowStockAcrossCity,
+      neighborhoods: {
+        labels: Object.keys(neighborhoodSales).map(n => n.replace(" Quarter", "").replace(" Market", "").replace(" Commons", "")),
+        data: Object.values(neighborhoodSales)
+      }
+    };
+  }
+
+  setPlatformAnnouncement(text) {
+    this.platformAnnouncement = text;
+    this.save();
   }
 
   // Inquiries
@@ -589,7 +718,6 @@ class LocalBazarStore {
     };
     this.reviews.unshift(newRev);
 
-    // Update product rating
     const prodReviews = this.reviews.filter(r => r.productId === reviewData.productId);
     const avg = prodReviews.reduce((s, r) => s + r.rating, 0) / prodReviews.length;
     const prod = this.getProduct(reviewData.productId);

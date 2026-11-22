@@ -27,8 +27,13 @@ function loadData() {
     }
   }
 
-  // Fallback initial dataset
   const seed = {
+    broadcastAnnouncement: "🎉 Welcome to LocalBazar: Celebrating 30+ neighbourhood artisans and makers in your city!",
+    users: [
+      { id: "cust-1", name: "Aditi Rao", email: "aditi@localbazar.com", role: "customer" },
+      { id: "seller-1", name: "Elena Rostova", email: "elena@crustcrumb.local", role: "seller", shopId: "shop-1" },
+      { id: "admin-1", name: "Vikram Rathore", email: "admin@localbazar.gov", role: "admin" }
+    ],
     shops: [
       {
         id: "shop-1",
@@ -44,6 +49,7 @@ function loadData() {
         rating: 4.9,
         reviewCount: 142,
         verified: true,
+        suspended: false,
         banner: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1200&q=80",
         avatar: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=200&q=80",
         story: "Started in Elena's home kitchen in 2021 using her great-grandmother's 60-year-old sourdough starter.",
@@ -63,6 +69,7 @@ function loadData() {
         rating: 4.8,
         reviewCount: 96,
         verified: true,
+        suspended: false,
         banner: "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=1200&q=80",
         avatar: "https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&w=200&q=80",
         story: "Aarav creates functional art inspired by local river clay and mineral glazes.",
@@ -82,7 +89,8 @@ function loadData() {
         description: "Naturally leavened with wild yeast, fermented for 36 hours.",
         image: "https://images.unsplash.com/photo-1589367920969-ab8e050bbb04?auto=format&fit=crop&w=800&q=80",
         rating: 4.95,
-        salesCount: 342
+        salesCount: 342,
+        adminFeatured: true
       },
       {
         id: "prod-2",
@@ -96,7 +104,8 @@ function loadData() {
         description: "Flaky laminated croissant dough rolled with crushed green cardamom.",
         image: "https://images.unsplash.com/photo-1509365465985-25d11c17e812?auto=format&fit=crop&w=800&q=80",
         rating: 4.9,
-        salesCount: 184
+        salesCount: 184,
+        adminFeatured: false
       }
     ],
     orders: [
@@ -131,12 +140,57 @@ function saveData() {
 
 // REST Endpoints
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'LocalBazar API', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', service: 'LocalBazar API (Customer·Seller·Admin)', timestamp: new Date().toISOString() });
+});
+
+// Authentication (Customer, Seller, Admin)
+app.post('/api/auth/login', (req, res) => {
+  const { email, role } = req.body;
+  const user = db.users.find(u => u.email === email && (!role || u.role === role)) || {
+    id: 'user-' + Date.now(),
+    name: email.split('@')[0],
+    email,
+    role: role || 'customer',
+    shopId: role === 'seller' ? 'shop-1' : undefined
+  };
+  res.json({ user, token: 'mock-jwt-token-' + user.id });
+});
+
+app.post('/api/auth/register', (req, res) => {
+  const { name, email, role, businessName, address } = req.body;
+  const newUser = {
+    id: 'user-' + Date.now(),
+    name,
+    email,
+    role: role || 'customer',
+    shopId: role === 'seller' ? 'shop-' + Date.now() : undefined
+  };
+  db.users.push(newUser);
+
+  if (role === 'seller') {
+    db.shops.push({
+      id: newUser.shopId,
+      name: businessName || `${name}'s Workshop`,
+      owner: name,
+      address: address || '',
+      neighborhood: 'Downtown Arts Quarter',
+      verified: false,
+      suspended: false,
+      rating: 5.0,
+      reviewCount: 0,
+      banner: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1200&q=80',
+      avatar: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=200&q=80',
+      announcements: []
+    });
+  }
+
+  saveData();
+  res.status(201).json({ user: newUser });
 });
 
 // Shops
-app.get('/api/shops', (req, res) => {
-  res.json({ shops: db.shops });
+app.get('/api/shops', (_req, res) => {
+  res.json({ shops: db.shops.filter(s => !s.suspended) });
 });
 
 app.get('/api/shops/:id', (req, res) => {
@@ -162,10 +216,6 @@ app.get('/api/products', (req, res) => {
   if (req.query.shopId) {
     list = list.filter(p => p.shopId === req.query.shopId);
   }
-  if (req.query.q) {
-    const q = req.query.q.toLowerCase();
-    list = list.filter(p => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
-  }
   res.json({ products: list });
 });
 
@@ -174,25 +224,12 @@ app.post('/api/products', (req, res) => {
     id: 'prod-' + Date.now(),
     rating: 5.0,
     salesCount: 0,
+    adminFeatured: false,
     ...req.body
   };
   db.products.unshift(newProd);
   saveData();
   res.status(201).json({ product: newProd });
-});
-
-app.put('/api/products/:id', (req, res) => {
-  const idx = db.products.findIndex(p => p.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Product not found' });
-  db.products[idx] = { ...db.products[idx], ...req.body };
-  saveData();
-  res.json({ product: db.products[idx] });
-});
-
-app.delete('/api/products/:id', (req, res) => {
-  db.products = db.products.filter(p => p.id !== req.params.id);
-  saveData();
-  res.json({ success: true });
 });
 
 // Orders & Inventory Transactions
@@ -203,7 +240,7 @@ app.post('/api/orders', (req, res) => {
   for (const item of items) {
     const prod = db.products.find(p => p.id === item.productId);
     if (!prod || prod.stock < item.quantity) {
-      return res.status(400).json({ error: `Insufficient stock for product ${prod?.name || item.productId}` });
+      return res.status(400).json({ error: `Insufficient stock for ${prod?.name || item.productId}` });
     }
   }
 
@@ -253,44 +290,47 @@ app.get('/api/orders', (req, res) => {
   res.json({ orders: list });
 });
 
-app.patch('/api/orders/:id/status', (req, res) => {
-  const order = db.orders.find(o => o.id === req.params.id);
-  if (!order) return res.status(404).json({ error: 'Order not found' });
-  order.status = req.body.status;
-  saveData();
-  res.json({ order });
-});
-
-// Analytics
-app.get('/api/analytics/seller/:shopId', (req, res) => {
-  const shopId = req.params.shopId;
-  const shopProds = db.products.filter(p => p.shopId === shopId);
-  const shopOrders = db.orders.filter(o => o.shopId === shopId);
-
-  let totalRevenue = 0;
-  let unitsSold = 0;
-  shopOrders.forEach(o => {
-    o.items.forEach(i => {
-      totalRevenue += i.price * i.quantity;
-      unitsSold += i.quantity;
-    });
+// Admin Governance Endpoints
+app.get('/api/admin/overview', (_req, res) => {
+  let totalGMV = 0;
+  let totalUnits = 0;
+  db.orders.forEach(o => {
+    totalGMV += o.total;
+    o.items.forEach(i => totalUnits += i.quantity);
   });
-
-  const lowStockCount = shopProds.filter(p => p.stock <= 5).length;
-  const aov = shopOrders.length ? Math.round(totalRevenue / shopOrders.length) : 0;
 
   res.json({
-    totalRevenue,
-    totalOrders: shopOrders.length,
-    unitsSold,
-    activeProducts: shopProds.length,
-    lowStockCount,
-    aov,
-    trend: {
-      labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-      data: [2400, 3100, 2800, 4200, 5600, 7100, totalRevenue || 4800]
-    }
+    totalGMV,
+    platformCommission: Math.round(totalGMV * 0.05),
+    totalOrders: db.orders.length,
+    totalSellers: db.shops.length,
+    verifiedSellers: db.shops.filter(s => s.verified).length,
+    totalProducts: db.products.length,
+    totalUnits,
+    broadcast: db.broadcastAnnouncement
   });
+});
+
+app.post('/api/admin/shops/:id/verify', (req, res) => {
+  const shop = db.shops.find(s => s.id === req.params.id);
+  if (!shop) return res.status(404).json({ error: 'Shop not found' });
+  shop.verified = !shop.verified;
+  saveData();
+  res.json({ shop });
+});
+
+app.post('/api/admin/products/:id/feature', (req, res) => {
+  const prod = db.products.find(p => p.id === req.params.id);
+  if (!prod) return res.status(404).json({ error: 'Product not found' });
+  prod.adminFeatured = !prod.adminFeatured;
+  saveData();
+  res.json({ product: prod });
+});
+
+app.post('/api/admin/broadcast', (req, res) => {
+  db.broadcastAnnouncement = req.body.message || '';
+  saveData();
+  res.json({ broadcastAnnouncement: db.broadcastAnnouncement });
 });
 
 // Serve frontend client statically
@@ -300,5 +340,5 @@ app.get('*', (_req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 LocalBazar Fullstack Server running at http://localhost:${PORT}`);
+  console.log(`🚀 LocalBazar (Customer · Seller · Admin) Server running at http://localhost:${PORT}`);
 });

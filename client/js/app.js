@@ -1,4 +1,4 @@
-// LocalBazar Main Application Controller
+// LocalBazar Controller with 3 Characters: Customer · Seller · Admin
 let currentCatalogTab = 'products';
 let activeFilters = {
   category: 'all',
@@ -11,12 +11,14 @@ let activeFilters = {
 
 let sellerRevenueChart = null;
 let sellerCategoryChart = null;
+let adminNeighborhoodChart = null;
 let currentSellerShopId = 'shop-1';
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
   initHeader();
   renderCategoryPills();
+  updateHeaderProfile();
   renderMarketplace();
   updateCartBadge();
   updateCompareDock();
@@ -31,7 +33,8 @@ function showToast(message, type = 'success') {
     success: 'fa-circle-check text-emerald-500',
     warning: 'fa-triangle-exclamation text-amber-500',
     error: 'fa-circle-exclamation text-rose-500',
-    info: 'fa-circle-info text-blue-500'
+    info: 'fa-circle-info text-blue-500',
+    admin: 'fa-shield-halved text-purple-600'
   };
 
   toast.className = 'glass bg-white/95 px-4 py-3 rounded-2xl shadow-xl border border-slate-200 text-xs font-semibold text-slate-800 flex items-center gap-2.5 transform translate-y-2 opacity-0 transition-all duration-300 pointer-events-auto max-w-sm';
@@ -70,28 +73,98 @@ function closeModal(modalId) {
   }
 }
 
-// View Navigation (Buyer Marketplace vs Seller Portal)
+// ==================== AUTH & 3-ROLE CONTROLLER ====================
+function openAuthModal() {
+  openModal('modal-auth');
+}
+
+function loginAs(role) {
+  const user = window.store.switchRole(role);
+  closeModal('modal-auth');
+  updateHeaderProfile();
+
+  if (role === 'customer') {
+    switchView('marketplace');
+    showToast(`Logged in as Customer: ${user.name}`, 'success');
+  } else if (role === 'seller') {
+    currentSellerShopId = user.shopId || 'shop-1';
+    switchView('seller-portal');
+    showToast(`Logged in as Local Seller: ${user.name}`, 'warning');
+  } else if (role === 'admin') {
+    switchView('admin-portal');
+    showToast(`Logged in as City Admin: ${user.name}`, 'admin');
+  }
+}
+
+function handleCustomLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('auth-email-input').value;
+  const role = document.getElementById('auth-role-select').value;
+  
+  const user = window.store.switchRole(role);
+  user.email = email;
+  user.name = email.split('@')[0].toUpperCase();
+  window.store.save();
+
+  closeModal('modal-auth');
+  updateHeaderProfile();
+
+  if (role === 'customer') switchView('marketplace');
+  if (role === 'seller') switchView('seller-portal');
+  if (role === 'admin') switchView('admin-portal');
+  showToast(`Welcome ${user.name}! Switched to ${role.toUpperCase()} persona.`, 'success');
+}
+
+function updateHeaderProfile() {
+  const user = window.store.currentUser || window.store.getDemoUsers().customer;
+  document.getElementById('header-user-avatar').src = user.avatar;
+  document.getElementById('header-user-name').textContent = user.name;
+  
+  const roleEl = document.getElementById('header-user-role');
+  roleEl.textContent = user.role.toUpperCase();
+
+  if (user.role === 'customer') roleEl.className = 'block text-[9px] font-bold text-emerald-700 uppercase tracking-wider';
+  if (user.role === 'seller') roleEl.className = 'block text-[9px] font-bold text-amber-600 uppercase tracking-wider';
+  if (user.role === 'admin') roleEl.className = 'block text-[9px] font-bold text-purple-700 uppercase tracking-wider';
+
+  // Update Platform Announcement text
+  document.getElementById('platform-announcement-text').textContent = window.store.platformAnnouncement;
+}
+
+// View Navigation: Marketplace vs Seller Portal vs Admin Portal
 function switchView(viewName) {
   const marketView = document.getElementById('view-marketplace');
   const sellerView = document.getElementById('view-seller-portal');
+  const adminView = document.getElementById('view-admin-portal');
+
   const navMarket = document.getElementById('nav-btn-marketplace');
   const navSeller = document.getElementById('nav-btn-seller');
+  const navAdmin = document.getElementById('nav-btn-admin');
+
+  // Reset nav styles
+  [navMarket, navSeller, navAdmin].forEach(b => {
+    b.className = 'px-2.5 sm:px-3 py-1.5 rounded-lg transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1';
+  });
+
+  marketView.classList.add('hidden');
+  sellerView.classList.add('hidden');
+  adminView.classList.add('hidden');
 
   if (viewName === 'marketplace') {
     marketView.classList.remove('hidden');
-    sellerView.classList.add('hidden');
-    navMarket.className = 'px-3 py-1.5 rounded-lg transition-all bg-white text-slate-900 shadow-sm';
-    navSeller.className = 'px-3 py-1.5 rounded-lg transition-all text-slate-600 hover:text-slate-900';
+    navMarket.className = 'px-2.5 sm:px-3 py-1.5 rounded-lg transition-all bg-white text-slate-900 shadow-sm flex items-center gap-1';
     renderMarketplace();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   } else if (viewName === 'seller-portal') {
-    marketView.classList.add('hidden');
     sellerView.classList.remove('hidden');
-    navMarket.className = 'px-3 py-1.5 rounded-lg transition-all text-slate-600 hover:text-slate-900';
-    navSeller.className = 'px-3 py-1.5 rounded-lg transition-all bg-slate-900 text-white shadow-sm';
+    navSeller.className = 'px-2.5 sm:px-3 py-1.5 rounded-lg transition-all bg-white text-slate-900 shadow-sm flex items-center gap-1';
     renderSellerDashboard();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else if (viewName === 'admin-portal') {
+    adminView.classList.remove('hidden');
+    navAdmin.className = 'px-2.5 sm:px-3 py-1.5 rounded-lg transition-all bg-purple-700 text-white shadow-sm flex items-center gap-1';
+    renderAdminPortal();
   }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // Header & Locality Setup
@@ -105,32 +178,20 @@ function initHeader() {
 function onNeighborhoodChange(val) {
   activeFilters.neighborhood = val;
   renderMarketplace();
-  showToast(`Showing sellers & products in: ${val}`, 'info');
+  showToast(`Showing sellers & finds in: ${val}`, 'info');
 }
 
 function setupSearchInputs() {
   const desktopSearch = document.getElementById('global-search-input');
   const mobileSearch = document.getElementById('mobile-search-input');
-  const clearBtn = document.getElementById('clear-search-btn');
 
   const handleInput = (e) => {
     activeFilters.search = e.target.value.trim();
-    if (clearBtn) clearBtn.classList.toggle('hidden', !activeFilters.search);
     renderMarketplace();
   };
 
   if (desktopSearch) desktopSearch.addEventListener('input', handleInput);
   if (mobileSearch) mobileSearch.addEventListener('input', handleInput);
-}
-
-function clearSearch() {
-  const desktopSearch = document.getElementById('global-search-input');
-  const mobileSearch = document.getElementById('mobile-search-input');
-  if (desktopSearch) desktopSearch.value = '';
-  if (mobileSearch) mobileSearch.value = '';
-  document.getElementById('clear-search-btn')?.classList.add('hidden');
-  activeFilters.search = '';
-  renderMarketplace();
 }
 
 // Category Pills
@@ -158,21 +219,18 @@ function setCategoryFilter(catId) {
   renderMarketplace();
 }
 
-// Main Marketplace Rendering
+// ==================== VIEW 1: CUSTOMER MARKETPLACE ====================
 function renderMarketplace() {
   renderRecommendations();
   renderCatalog();
 }
 
-// Personalized Recommendations
 function renderRecommendations() {
   const recs = window.store.getRecommendations();
 
-  // 1. Trending in Neighborhood
   const trendingContainer = document.getElementById('recommendations-trending-grid');
   trendingContainer.innerHTML = recs.trending.map(prod => renderMiniProductCard(prod, '🔥 Trending')).join('');
 
-  // 2. Handcrafted Curated
   const curatedContainer = document.getElementById('recommendations-curated-grid');
   curatedContainer.innerHTML = recs.categoryPicks.map(prod => renderMiniProductCard(prod, '✨ Curated')).join('');
 }
@@ -186,9 +244,16 @@ function renderMiniProductCard(product, tagLabel) {
       <div>
         <div class="relative rounded-xl overflow-hidden mb-2.5 h-32 bg-slate-100 cursor-pointer" onclick="openProductDetailsModal('${product.id}')">
           <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover">
-          <span class="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/95 text-slate-800 shadow">
-            ${tagLabel}
-          </span>
+          <div class="absolute top-2 left-2 flex flex-col gap-1">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/95 text-slate-800 shadow">
+              ${tagLabel}
+            </span>
+            ${product.adminFeatured ? `
+              <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-700 text-white shadow">
+                ⭐ Admin Choice
+              </span>
+            ` : ''}
+          </div>
           ${product.stock <= 5 ? `
             <span class="absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-white shadow">
               Only ${product.stock} left
@@ -206,15 +271,12 @@ function renderMiniProductCard(product, tagLabel) {
       </div>
 
       <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-        <div>
-          <span class="text-sm font-extrabold text-slate-900">₹${product.price}</span>
-          ${product.originalPrice ? `<span class="text-[10px] text-slate-400 line-through ml-1">₹${product.originalPrice}</span>` : ''}
-        </div>
+        <span class="text-sm font-extrabold text-slate-900">₹${product.price}</span>
         <div class="flex items-center gap-1.5">
           <button onclick="toggleCompareProduct('${product.id}')" title="Compare" class="p-1.5 rounded-lg border ${isCompared ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'} text-xs">
             <i class="fa-solid fa-scale-balanced"></i>
           </button>
-          <button onclick="handleAddToCart('${product.id}')" title="Add to Cart" class="p-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-sm">
+          <button onclick="handleAddToCart('${product.id}')" title="Add to Basket" class="p-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-sm">
             <i class="fa-solid fa-plus"></i>
           </button>
         </div>
@@ -223,7 +285,6 @@ function renderMiniProductCard(product, tagLabel) {
   `;
 }
 
-// Catalog View Toggles & Filters
 function setCatalogTab(tab) {
   currentCatalogTab = tab;
   const btnProds = document.getElementById('tab-btn-products');
@@ -257,28 +318,9 @@ function onFilterChange() {
   renderCatalog();
 }
 
-function resetAllFilters() {
-  activeFilters = {
-    category: 'all',
-    neighborhood: 'All Neighborhoods',
-    maxDistance: null,
-    fulfillment: '',
-    sort: 'popular',
-    search: ''
-  };
-  clearSearch();
-  document.getElementById('header-neighborhood-select').value = 'All Neighborhoods';
-  document.getElementById('filter-distance').value = '';
-  document.getElementById('filter-fulfillment').value = '';
-  document.getElementById('filter-sort').value = 'popular';
-  renderCategoryPills();
-  renderCatalog();
-}
-
-// Render Products & Shops in Catalog
 function renderCatalog() {
   const products = window.store.getProducts(activeFilters);
-  const allShops = window.store.shops;
+  const allShops = window.store.shops.filter(s => !s.suspended);
 
   let filteredShops = [...allShops];
   if (activeFilters.neighborhood !== 'All Neighborhoods') {
@@ -302,8 +344,7 @@ function renderCatalog() {
       <div class="col-span-full py-16 text-center">
         <div class="text-4xl mb-3">🧺</div>
         <h4 class="text-base font-bold text-slate-800">No local finds match your search criteria</h4>
-        <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">Try widening your distance filter or selecting a different neighbourhood.</p>
-        <button onclick="resetAllFilters()" class="mt-4 px-4 py-2 rounded-xl bg-brand-600 text-white text-xs font-bold">Reset Filters</button>
+        <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">Try widening your radius or choosing another category.</p>
       </div>
     `;
   } else {
@@ -316,8 +357,7 @@ function renderCatalog() {
     shopsGrid.innerHTML = `
       <div class="col-span-full py-16 text-center">
         <div class="text-4xl mb-3">🏪</div>
-        <h4 class="text-base font-bold text-slate-800">No local shops found in this area</h4>
-        <button onclick="resetAllFilters()" class="mt-4 px-4 py-2 rounded-xl bg-brand-600 text-white text-xs font-bold">Reset Filters</button>
+        <h4 class="text-base font-bold text-slate-800">No local shops found matching this query</h4>
       </div>
     `;
   } else {
@@ -325,7 +365,6 @@ function renderCatalog() {
   }
 }
 
-// Full Product Card Component
 function renderFullProductCard(product) {
   const shop = window.store.getShop(product.shopId);
   const isCompared = window.store.isInCompare(product.id);
@@ -333,7 +372,6 @@ function renderFullProductCard(product) {
   return `
     <article class="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-sm card-hover flex flex-col justify-between">
       <div>
-        <!-- Image & Badges -->
         <div class="relative rounded-2xl overflow-hidden mb-3 h-48 bg-slate-100 cursor-pointer group" onclick="openProductDetailsModal('${product.id}')">
           <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
           
@@ -341,6 +379,11 @@ function renderFullProductCard(product) {
             <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/95 text-slate-900 shadow-sm flex items-center gap-1">
               <i class="fa-solid fa-location-dot text-brand-600"></i> ${shop?.distanceKm || 1.5} km
             </span>
+            ${product.adminFeatured ? `
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-700 text-white shadow-sm flex items-center gap-1">
+                ⭐ Admin Choice
+              </span>
+            ` : ''}
             ${product.stock <= 5 ? `
               <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white shadow-sm">
                 Low Stock: ${product.stock} left
@@ -350,7 +393,7 @@ function renderFullProductCard(product) {
 
           <div class="absolute bottom-2.5 right-2.5">
             <button onclick="event.stopPropagation(); toggleCompareProduct('${product.id}')" 
-                    title="${isCompared ? 'Remove from Comparison' : 'Add to Comparison'}"
+                    title="${isCompared ? 'Remove Comparison' : 'Add Comparison'}"
                     class="px-2.5 py-1 rounded-lg text-[11px] font-bold shadow-md transition-all flex items-center gap-1 ${
                       isCompared ? 'bg-slate-900 text-white' : 'bg-white/90 hover:bg-white text-slate-800'
                     }">
@@ -360,7 +403,6 @@ function renderFullProductCard(product) {
           </div>
         </div>
 
-        <!-- Shop & Title -->
         <div class="flex items-center gap-2 mb-1.5 cursor-pointer" onclick="openShopDetailsModal('${shop?.id}')">
           <img src="${shop?.avatar}" class="w-5 h-5 rounded-full object-cover">
           <span class="text-xs font-bold text-slate-700 hover:text-brand-600 truncate">${shop?.name}</span>
@@ -371,18 +413,8 @@ function renderFullProductCard(product) {
           ${product.name}
         </h3>
         <p class="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">${product.description}</p>
-
-        <!-- Tags -->
-        <div class="flex flex-wrap gap-1 mt-2.5">
-          ${product.tags ? product.tags.slice(0, 2).map(t => `
-            <span class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-600">
-              ${t}
-            </span>
-          `).join('') : ''}
-        </div>
       </div>
 
-      <!-- Price & Actions Footer -->
       <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
         <div>
           <div class="flex items-baseline gap-1">
@@ -401,7 +433,6 @@ function renderFullProductCard(product) {
   `;
 }
 
-// Shop Card Component
 function renderShopCard(shop) {
   const shopProducts = window.store.getProducts({ shopId: shop.id });
 
@@ -431,22 +462,11 @@ function renderShopCard(shop) {
           </div>
           <p class="text-xs text-brand-700 font-semibold mt-0.5">${shop.tagline}</p>
           <p class="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">${shop.story}</p>
-
-          <div class="mt-3 p-2.5 bg-slate-50 rounded-xl text-[11px] text-slate-600 space-y-1">
-            <div class="flex items-center gap-2">
-              <i class="fa-regular fa-clock text-slate-400"></i>
-              <span>${shop.hours}</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <i class="fa-solid fa-location-dot text-slate-400"></i>
-              <span>${shop.address}</span>
-            </div>
-          </div>
         </div>
       </div>
 
       <div class="p-5 pt-0 border-t border-slate-100 flex items-center gap-2 mt-3">
-        <a href="https://wa.me/${shop.whatsapp}" target="_blank" title="Direct WhatsApp Chat" class="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs hover:bg-emerald-100 transition-colors flex items-center gap-1.5">
+        <a href="https://wa.me/${shop.whatsapp}" target="_blank" title="WhatsApp Chat" class="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs hover:bg-emerald-100 transition-colors flex items-center gap-1.5">
           <i class="fa-brands fa-whatsapp text-sm"></i> WhatsApp
         </a>
         <button onclick="openShopDetailsModal('${shop.id}')" class="flex-1 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow transition-all text-center">
@@ -533,36 +553,23 @@ function openComparisonModal() {
           <tr>
             <td class="p-3 bg-slate-50 text-slate-600 font-semibold">Customer Rating</td>
             ${list.map(p => `
-              <td class="p-3 text-amber-500 font-bold">
-                ⭐ ${p.rating} / 5.0 (${p.salesCount} sold)
-              </td>
+              <td class="p-3 text-amber-500 font-bold">⭐ ${p.rating} / 5.0 (${p.salesCount} sold)</td>
             `).join('')}
           </tr>
           <tr>
-            <td class="p-3 bg-slate-50 text-slate-600 font-semibold">Ingredients / Craft Info</td>
+            <td class="p-3 bg-slate-50 text-slate-600 font-semibold">Ingredients / Materials</td>
             ${list.map(p => `
               <td class="p-3 text-slate-600 leading-relaxed">${p.ingredients || p.description}</td>
             `).join('')}
           </tr>
           <tr>
-            <td class="p-3 bg-slate-50 text-slate-600 font-semibold">Inventory Available</td>
+            <td class="p-3 bg-slate-50 text-slate-600 font-semibold">Stock Availability</td>
             ${list.map(p => `
               <td class="p-3">
                 ${p.stock <= 5 
                   ? `<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">Low: ${p.stock} left</span>`
                   : `<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">${p.stock} in stock</span>`
                 }
-              </td>
-            `).join('')}
-          </tr>
-          <tr>
-            <td class="p-3 bg-slate-50 text-slate-600 font-semibold">Fulfillment Options</td>
-            ${list.map(p => `
-              <td class="p-3 text-slate-700">
-                <div class="flex flex-col gap-1">
-                  <span>${p.pickupAvailable ? '✅ In-Store Pickup Today' : '❌ No pickup'}</span>
-                  <span>${p.deliveryAvailable ? '✅ Same-Day Local Delivery' : '❌ No delivery'}</span>
-                </div>
               </td>
             `).join('')}
           </tr>
@@ -611,8 +618,6 @@ function openShopDetailsModal(shopId) {
     </div>
 
     <div class="p-6 space-y-6">
-      
-      <!-- Badges & Contact Row -->
       <div class="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
         <div class="flex items-center gap-4 text-slate-700">
           <div><span class="text-slate-400 block">Locality:</span> <b>📍 ${shop.neighborhood} (${shop.distanceKm} km)</b></div>
@@ -623,16 +628,15 @@ function openShopDetailsModal(shopId) {
           <a href="https://wa.me/${shop.whatsapp}" target="_blank" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-sm">
             <i class="fa-brands fa-whatsapp text-sm"></i> WhatsApp Shop
           </a>
-          <a href="tel:${shop.phone}" class="px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold flex items-center gap-1.5">
+          <a href="tel:${shop.phone}" class="px-3 py-2 rounded-xl bg-slate-200 text-slate-800 font-semibold flex items-center gap-1.5">
             <i class="fa-solid fa-phone text-xs"></i> Call
           </a>
         </div>
       </div>
 
-      <!-- Story & Announcements -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="md:col-span-2 space-y-2">
-          <h4 class="font-bold text-slate-900 text-sm uppercase tracking-wider">Our Artisan Story</h4>
+          <h4 class="font-bold text-slate-900 text-sm uppercase tracking-wider">Artisan Story</h4>
           <p class="text-xs text-slate-600 leading-relaxed">${shop.story}</p>
         </div>
 
@@ -646,26 +650,24 @@ function openShopDetailsModal(shopId) {
                 <p class="text-slate-800 font-medium">${a.text}</p>
                 <span class="text-[10px] text-slate-400 block mt-1">${a.date}</span>
               </div>
-            `).join('') : '<p class="text-slate-500">No recent announcements.</p>'}
+            `).join('') : '<p class="text-slate-500">No announcements right now.</p>'}
           </div>
         </div>
       </div>
 
-      <!-- Shop Products Grid -->
       <div>
-        <h4 class="font-bold text-slate-900 text-base mb-4">Artisanal Catalog from ${shop.name} (${products.length})</h4>
+        <h4 class="font-bold text-slate-900 text-base mb-4">Artisanal Catalog (${products.length})</h4>
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           ${products.map(p => renderFullProductCard(p)).join('')}
         </div>
       </div>
-
     </div>
   `;
 
   openModal('modal-shop-details');
 }
 
-// Product Details & Customer Inquiries Modal
+// Product Details Modal
 function openProductDetailsModal(productId) {
   const product = window.store.getProduct(productId);
   if (!product) return;
@@ -694,7 +696,6 @@ function openProductDetailsModal(productId) {
           <div class="p-3 bg-slate-50 rounded-xl text-xs space-y-1.5 border border-slate-200">
             <div class="flex justify-between"><span>Unit Weight / Size:</span> <b>${product.unit}</b></div>
             <div class="flex justify-between"><span>Available Inventory:</span> <b class="${product.stock <= 5 ? 'text-amber-600 font-bold' : 'text-slate-800'}">${product.stock} units</b></div>
-            <div class="flex justify-between"><span>Fulfillment:</span> <b>Pickup & Local Delivery</b></div>
           </div>
         </div>
 
@@ -717,7 +718,7 @@ function openProductDetailsModal(productId) {
 
           ${product.ingredients ? `
             <div>
-              <h4 class="font-bold text-slate-800 uppercase tracking-wide text-[11px] mb-1">Ingredients & Craft Materials</h4>
+              <h4 class="font-bold text-slate-800 uppercase tracking-wide text-[11px] mb-1">Ingredients / Materials</h4>
               <p class="text-slate-600 leading-relaxed p-2.5 bg-slate-50 rounded-xl border border-slate-200">${product.ingredients}</p>
             </div>
           ` : ''}
@@ -731,24 +732,21 @@ function openProductDetailsModal(productId) {
             </button>
           </div>
 
-          <!-- Customer Inquiry Box -->
           <div class="pt-4 border-t border-slate-100">
             <h4 class="font-bold text-slate-900 text-xs mb-2">💬 Ask ${shop?.owner || 'the Maker'} a Question</h4>
             <form onsubmit="handleSendInquiry(event, '${product.id}', '${shop?.id}')" class="space-y-2">
-              <input type="text" id="inquiry-customer-name" required placeholder="Your Name" value="Aditi Rao" class="w-full p-2 rounded-lg border border-slate-200 outline-none">
+              <input type="text" id="inquiry-customer-name" required placeholder="Your Name" value="${window.store.currentUser?.name || 'Local Neighbor'}" class="w-full p-2 rounded-lg border border-slate-200 outline-none">
               <textarea id="inquiry-message" required rows="2" placeholder="Ask about ingredients, delivery timing, or bulk batches..." class="w-full p-2 rounded-lg border border-slate-200 outline-none"></textarea>
               <button type="submit" class="w-full py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow">
                 Send Direct Message to Seller
               </button>
             </form>
           </div>
-
         </div>
       </div>
 
-      <!-- Customer Reviews Section -->
       <div class="mt-8 pt-6 border-t border-slate-200">
-        <h3 class="font-bold text-slate-900 text-sm mb-3">Neighbourhood Buyer Reviews (${reviews.length})</h3>
+        <h3 class="font-bold text-slate-900 text-sm mb-3">Customer Reviews (${reviews.length})</h3>
         <div class="space-y-3 mb-4">
           ${reviews.map(r => `
             <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
@@ -761,11 +759,10 @@ function openProductDetailsModal(productId) {
           `).join('')}
         </div>
 
-        <!-- Add Review Form -->
         <form onsubmit="handleAddReview(event, '${product.id}')" class="p-4 rounded-2xl bg-brand-50/50 border border-brand-100 text-xs space-y-2">
           <span class="font-bold text-brand-900 block">Write a Local Review</span>
           <div class="flex gap-2">
-            <input type="text" id="review-customer-name" required placeholder="Your name" value="Aditi Rao" class="flex-1 p-2 rounded-lg border border-slate-200 bg-white">
+            <input type="text" id="review-customer-name" required value="${window.store.currentUser?.name || 'Customer'}" class="flex-1 p-2 rounded-lg border border-slate-200 bg-white">
             <select id="review-rating" class="p-2 rounded-lg border border-slate-200 bg-white font-bold text-amber-600">
               <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
               <option value="4">⭐⭐⭐⭐ (4/5)</option>
@@ -776,7 +773,6 @@ function openProductDetailsModal(productId) {
           <button type="submit" class="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-bold shadow-sm">Submit Review</button>
         </form>
       </div>
-
     </div>
   `;
 
@@ -794,7 +790,7 @@ function handleSendInquiry(e, productId, shopId) {
     productId,
     productName: prod?.name || 'Artisan Item',
     customerName: name,
-    customerEmail: 'aditi@gmail.com',
+    customerEmail: window.store.currentUser?.email || 'buyer@localbazar.com',
     message
   });
 
@@ -815,12 +811,12 @@ function handleAddReview(e, productId) {
     comment
   });
 
-  showToast('Thank you for supporting a local business with your review!', 'success');
+  showToast('Review submitted! Supporting local businesses.', 'success');
   openProductDetailsModal(productId);
   renderMarketplace();
 }
 
-// Cart Drawer & Checkout Handlers
+// Basket & Checkout
 function toggleCartDrawer(open) {
   const drawer = document.getElementById('cart-drawer');
   const overlay = document.getElementById('cart-drawer-overlay');
@@ -861,7 +857,7 @@ function renderCartItems() {
       <div class="text-center py-20 text-slate-400">
         <i class="fa-solid fa-basket-shopping text-4xl mb-3 text-slate-300"></i>
         <h4 class="text-sm font-bold text-slate-700">Your basket is empty</h4>
-        <p class="text-xs text-slate-400 mt-1">Discover freshly baked bread, local honey, and ceramics to get started.</p>
+        <p class="text-xs text-slate-400 mt-1">Discover freshly baked bread and pottery to get started.</p>
       </div>
     `;
     updateCheckoutTotal();
@@ -921,7 +917,7 @@ function handlePlaceOrder() {
     deliveryType,
     customerName: name,
     customerPhone: phone,
-    deliveryAddress: deliveryType === 'pickup' ? 'In-Store Customer Pickup' : address
+    deliveryAddress: deliveryType === 'pickup' ? 'In-Store Pickup' : address
   });
 
   if (!res.success) {
@@ -929,95 +925,63 @@ function handlePlaceOrder() {
     return;
   }
 
-  // Trigger celebration confetti
-  confetti({
-    particleCount: 80,
-    spread: 60,
-    origin: { y: 0.6 }
-  });
-
+  confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
   toggleCartDrawer(false);
   updateCartBadge();
   renderMarketplace();
   showToast(`Order #${res.order.id} placed successfully with local merchants!`, 'success');
 
-  // Open customer orders view to show tracking
-  setTimeout(() => {
-    openCustomerOrdersModal();
-  }, 600);
+  setTimeout(() => openCustomerOrdersModal(), 600);
 }
 
-// Customer Orders Modal & Tracking
 function openCustomerOrdersModal() {
   const orders = window.store.orders;
   const container = document.getElementById('customer-orders-list');
 
   if (orders.length === 0) {
-    container.innerHTML = `
-      <div class="text-center py-12 text-slate-400">
-        <i class="fa-regular fa-clipboard text-4xl mb-2 text-slate-300"></i>
-        <p class="text-xs">No orders placed yet. Shop from your local bakeries and makers!</p>
-      </div>
-    `;
+    container.innerHTML = `<div class="text-center py-12 text-slate-400"><p class="text-xs">No orders placed yet.</p></div>`;
   } else {
-    container.innerHTML = orders.map(o => {
-      const statusBadges = {
-        confirmed: 'bg-blue-100 text-blue-800',
-        ready: 'bg-amber-100 text-amber-800',
-        delivered: 'bg-emerald-100 text-emerald-800',
-        cancelled: 'bg-rose-100 text-rose-800'
-      };
-
-      return `
-        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-3">
-          <div class="flex items-center justify-between">
-            <div>
-              <span class="font-extrabold text-slate-900 text-sm">Order #${o.id}</span>
-              <span class="text-slate-400 block text-[10px]">${new Date(o.date).toLocaleString()}</span>
-            </div>
-            <span class="px-2.5 py-1 rounded-full font-bold uppercase tracking-wider text-[10px] ${statusBadges[o.status] || 'bg-slate-200'}">
-              ${o.status}
-            </span>
-          </div>
-
-          <!-- Tracking Stepper -->
-          <div class="flex items-center justify-between px-2 pt-2 text-[10px] font-bold text-slate-500">
-            <span class="${o.status !== 'cancelled' ? 'text-brand-600' : ''}">1. Placed</span>
-            <span class="${['confirmed', 'ready', 'delivered'].includes(o.status) ? 'text-brand-600' : ''}">2. Confirmed</span>
-            <span class="${['ready', 'delivered'].includes(o.status) ? 'text-brand-600' : ''}">3. Packed / Ready</span>
-            <span class="${o.status === 'delivered' ? 'text-brand-600' : ''}">4. Delivered</span>
-          </div>
-
-          <!-- Items list -->
-          <div class="p-2.5 bg-white rounded-xl border border-slate-100 space-y-1">
-            ${o.items.map(i => `
-              <div class="flex justify-between">
-                <span>${i.name} × ${i.quantity}</span>
-                <span class="font-bold">₹${i.price * i.quantity}</span>
-              </div>
-            `).join('')}
-            <div class="flex justify-between pt-1 border-t border-slate-100 font-extrabold text-slate-900">
-              <span>Total Paid</span>
-              <span>₹${o.total}</span>
-            </div>
+    container.innerHTML = orders.map(o => `
+      <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="font-extrabold text-slate-900 text-sm">Order #${o.id}</span>
+          <span class="px-2.5 py-1 rounded-full font-bold uppercase tracking-wider text-[10px] bg-blue-100 text-blue-800">${o.status}</span>
+        </div>
+        <div class="flex items-center justify-between px-2 pt-1 text-[10px] font-bold text-slate-500">
+          <span class="text-brand-600">1. Placed</span>
+          <span class="${['confirmed', 'ready', 'delivered'].includes(o.status) ? 'text-brand-600' : ''}">2. Confirmed</span>
+          <span class="${['ready', 'delivered'].includes(o.status) ? 'text-brand-600' : ''}">3. Packed / Ready</span>
+          <span class="${o.status === 'delivered' ? 'text-brand-600' : ''}">4. Delivered</span>
+        </div>
+        <div class="p-2.5 bg-white rounded-xl border border-slate-100 space-y-1">
+          ${o.items.map(i => `<div class="flex justify-between"><span>${i.name} × ${i.quantity}</span><span class="font-bold">₹${i.price * i.quantity}</span></div>`).join('')}
+          <div class="flex justify-between pt-1 border-t border-slate-100 font-extrabold text-slate-900">
+            <span>Total Paid</span>
+            <span>₹${o.total}</span>
           </div>
         </div>
-      `;
-    }).join('');
+      </div>
+    `).join('');
   }
 
   openModal('modal-customer-orders');
 }
 
-// ==================== SELLER PORTAL & DASHBOARD CONTROLLER ====================
+// ==================== VIEW 2: SELLER PORTAL ====================
 function renderSellerDashboard() {
   const shop = window.store.getShop(currentSellerShopId);
   const analytics = window.store.getSellerAnalytics(currentSellerShopId);
 
-  // Set Shop display
   document.getElementById('seller-shop-name-display').textContent = shop?.name || 'Local Seller';
+  const verifiedPill = document.getElementById('seller-verified-pill');
+  if (shop?.verified) {
+    verifiedPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
+    verifiedPill.textContent = 'Verified Seller';
+  } else {
+    verifiedPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700';
+    verifiedPill.textContent = 'Pending Verification';
+  }
 
-  // Stat metrics
   document.getElementById('stat-revenue').textContent = `₹${analytics.totalRevenue.toLocaleString()}`;
   document.getElementById('stat-orders').textContent = analytics.totalOrders;
   document.getElementById('stat-units').textContent = analytics.unitsSold;
@@ -1025,21 +989,13 @@ function renderSellerDashboard() {
   document.getElementById('stat-products').textContent = analytics.activeProducts;
   document.getElementById('stat-low-stock').textContent = analytics.lowStockCount;
 
-  // Render Charts
   renderSellerCharts(analytics);
-
-  // Render Order Pipeline Table
   renderSellerOrdersTable('all');
-
-  // Render Products & Inventory Table
   renderSellerProductsTable();
-
-  // Render Inquiries
   renderSellerInquiries();
 }
 
 function renderSellerCharts(analytics) {
-  // 1. Revenue Trend Line Chart
   const ctxRev = document.getElementById('seller-revenue-chart')?.getContext('2d');
   if (ctxRev) {
     if (sellerRevenueChart) sellerRevenueChart.destroy();
@@ -1055,7 +1011,6 @@ function renderSellerCharts(analytics) {
           fill: true,
           tension: 0.35,
           borderWidth: 2.5,
-          pointBackgroundColor: '#059669',
           pointRadius: 4
         }]
       },
@@ -1063,22 +1018,11 @@ function renderSellerCharts(analytics) {
         responsive: true,
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
-        scales: {
-          y: {
-            beginAtZero: true,
-            grid: { color: '#f1f5f9' },
-            ticks: { font: { size: 10 } }
-          },
-          x: {
-            grid: { display: false },
-            ticks: { font: { size: 10 } }
-          }
-        }
+        scales: { y: { beginAtZero: true } }
       }
     });
   }
 
-  // 2. Category Distribution Doughnut Chart
   const ctxCat = document.getElementById('seller-category-chart')?.getContext('2d');
   if (ctxCat) {
     if (sellerCategoryChart) sellerCategoryChart.destroy();
@@ -1094,9 +1038,7 @@ function renderSellerCharts(analytics) {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } }
-        }
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } }
       }
     });
   }
@@ -1104,44 +1046,24 @@ function renderSellerCharts(analytics) {
 
 function renderSellerOrdersTable(statusFilter = 'all') {
   let orders = window.store.orders.filter(o => o.shopId === currentSellerShopId || o.items.some(i => i.shopId === currentSellerShopId));
-  if (statusFilter !== 'all') {
-    orders = orders.filter(o => o.status === statusFilter);
-  }
+  if (statusFilter !== 'all') orders = orders.filter(o => o.status === statusFilter);
 
-  document.getElementById('active-orders-count').textContent = `${orders.length} Orders`;
   const tbody = document.getElementById('seller-orders-table-body');
-
   if (orders.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">No orders matching this filter.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">No orders under this filter.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = orders.map(o => `
     <tr class="hover:bg-slate-50 transition-colors">
       <td class="px-5 py-3.5 font-bold text-slate-900">#${o.id}</td>
-      <td class="px-5 py-3.5">
-        <span class="block text-slate-900 font-bold">${o.customerName}</span>
-        <span class="text-slate-400 text-[10px]">${o.customerPhone}</span>
-      </td>
-      <td class="px-5 py-3.5">
-        ${o.items.map(i => `<span class="block">${i.name} (x${i.quantity})</span>`).join('')}
-      </td>
-      <td class="px-5 py-3.5 text-slate-600">
-        <span class="font-bold text-slate-800">${o.deliveryType === 'pickup' ? '🛍️ In-Store Pickup' : '🚚 Home Delivery'}</span>
-        <span class="block text-[10px] text-slate-400">${o.deliveryAddress}</span>
-      </td>
+      <td class="px-5 py-3.5"><b>${o.customerName}</b><span class="text-slate-400 text-[10px] block">${o.customerPhone}</span></td>
+      <td class="px-5 py-3.5">${o.items.map(i => `<span class="block">${i.name} (x${i.quantity})</span>`).join('')}</td>
+      <td class="px-5 py-3.5">${o.deliveryType === 'pickup' ? '🛍️ In-Store Pickup' : '🚚 Home Delivery'}</td>
       <td class="px-5 py-3.5 font-extrabold text-slate-900">₹${o.total}</td>
-      <td class="px-5 py-3.5">
-        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-          o.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-          o.status === 'ready' ? 'bg-amber-100 text-amber-800' :
-          o.status === 'delivered' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-        }">
-          ${o.status}
-        </span>
-      </td>
+      <td class="px-5 py-3.5 font-bold uppercase text-[10px] text-brand-700">${o.status}</td>
       <td class="px-5 py-3.5 text-right">
-        <select onchange="handleUpdateOrderStatus('${o.id}', this.value)" class="p-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none">
+        <select onchange="handleUpdateOrderStatus('${o.id}', this.value)" class="p-1 rounded border border-slate-200 bg-white font-bold text-xs">
           <option value="confirmed" ${o.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
           <option value="ready" ${o.status === 'ready' ? 'selected' : ''}>Ready for Pickup</option>
           <option value="delivered" ${o.status === 'delivered' ? 'selected' : ''}>Delivered</option>
@@ -1187,13 +1109,11 @@ function renderSellerProductsTable() {
           : `<span class="font-bold text-slate-800">${p.stock} units</span>`
         }
       </td>
-      <td class="px-5 py-3.5 font-semibold text-slate-600">${p.salesCount || 0} sold</td>
-      <td class="px-5 py-3.5 text-slate-500 text-[10px]">Pickup & Delivery</td>
+      <td class="px-5 py-3.5 font-semibold text-slate-600">${p.salesCount || 0}</td>
       <td class="px-5 py-3.5 text-right space-x-1">
-        <button onclick="quickAdjustStock('${p.id}', 5)" title="Add 5 units" class="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold">+5</button>
-        <button onclick="quickAdjustStock('${p.id}', -1)" title="Remove 1 unit" class="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold">-1</button>
-        <button onclick="openEditProductModal('${p.id}')" title="Edit Product" class="px-2 py-1 rounded bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold">Edit</button>
-        <button onclick="deleteProduct('${p.id}')" title="Delete Product" class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold"><i class="fa-solid fa-trash-can"></i></button>
+        <button onclick="quickAdjustStock('${p.id}', 5)" title="Add 5" class="px-2 py-1 rounded bg-slate-100 font-bold">+5</button>
+        <button onclick="quickAdjustStock('${p.id}', -1)" title="Remove 1" class="px-2 py-1 rounded bg-slate-100 font-bold">-1</button>
+        <button onclick="openEditProductModal('${p.id}')" class="px-2 py-1 rounded bg-brand-50 text-brand-700 font-bold">Edit</button>
       </td>
     </tr>
   `).join('');
@@ -1204,19 +1124,10 @@ function quickAdjustStock(productId, delta) {
   if (!prod) return;
   const newStock = Math.max(0, prod.stock + delta);
   window.store.updateProduct(productId, { stock: newStock });
-  showToast(`Updated stock for '${prod.name}' to ${newStock} units.`, 'info');
+  showToast(`Stock updated to ${newStock} units.`, 'info');
   renderSellerDashboard();
 }
 
-function deleteProduct(productId) {
-  if (confirm('Are you sure you want to delete this product listing?')) {
-    window.store.deleteProduct(productId);
-    showToast('Product listing removed.', 'info');
-    renderSellerDashboard();
-  }
-}
-
-// Add / Edit Product Modal
 function openAddProductModal() {
   document.getElementById('product-form-title').textContent = 'Add Local Product Listing';
   document.getElementById('form-product-id').value = '';
@@ -1238,7 +1149,6 @@ function openEditProductModal(productId) {
   document.getElementById('form-product-stock').value = prod.stock;
   document.getElementById('form-product-image').value = prod.image;
   document.getElementById('form-product-desc').value = prod.description;
-  document.getElementById('form-product-ingredients').value = prod.ingredients || '';
 
   openModal('modal-product-form');
 }
@@ -1254,38 +1164,28 @@ function handleProductFormSubmit(e) {
   const stock = Number(document.getElementById('form-product-stock').value);
   let image = document.getElementById('form-product-image').value;
   const description = document.getElementById('form-product-desc').value;
-  const ingredients = document.getElementById('form-product-ingredients').value;
 
   if (!image) {
     image = 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80';
   }
 
   const payload = {
-    name,
-    category,
-    unit,
-    price,
-    originalPrice: origPrice,
-    stock,
-    image,
-    description,
-    ingredients,
+    name, category, unit, price, originalPrice: origPrice, stock, image, description,
     shopId: currentSellerShopId
   };
 
   if (id) {
     window.store.updateProduct(id, payload);
-    showToast(`Updated '${name}' successfully!`, 'success');
+    showToast(`Updated '${name}'!`, 'success');
   } else {
     window.store.addProduct(payload);
-    showToast(`Published '${name}' to local marketplace!`, 'success');
+    showToast(`Published '${name}'!`, 'success');
   }
 
   closeModal('modal-product-form');
   renderSellerDashboard();
 }
 
-// Announcements & Store Identity Modals
 function openAnnouncementModal() {
   document.getElementById('announcement-text').value = '';
   openModal('modal-announcement');
@@ -1295,70 +1195,54 @@ function handleAnnouncementSubmit(e) {
   e.preventDefault();
   const text = document.getElementById('announcement-text').value;
   window.store.addAnnouncement(currentSellerShopId, text);
-  showToast('Storefront announcement published to local customers!', 'success');
+  showToast('Storefront announcement published!', 'success');
   closeModal('modal-announcement');
 }
 
 function openEditShopModal() {
   const shop = window.store.getShop(currentSellerShopId);
   if (!shop) return;
-
   document.getElementById('edit-shop-name').value = shop.name;
   document.getElementById('edit-shop-tagline').value = shop.tagline || '';
   document.getElementById('edit-shop-whatsapp').value = shop.whatsapp || '';
-  document.getElementById('edit-shop-instagram').value = shop.instagram || '';
   document.getElementById('edit-shop-hours').value = shop.hours || '';
   document.getElementById('edit-shop-story').value = shop.story || '';
-
   openModal('modal-edit-shop');
 }
 
 function handleEditShopSubmit(e) {
   e.preventDefault();
-  const updates = {
+  window.store.updateShop(currentSellerShopId, {
     name: document.getElementById('edit-shop-name').value,
     tagline: document.getElementById('edit-shop-tagline').value,
     whatsapp: document.getElementById('edit-shop-whatsapp').value,
-    instagram: document.getElementById('edit-shop-instagram').value,
     hours: document.getElementById('edit-shop-hours').value,
     story: document.getElementById('edit-shop-story').value
-  };
-
-  window.store.updateShop(currentSellerShopId, updates);
-  showToast('Store identity and profile updated!', 'success');
+  });
+  showToast('Store profile updated!', 'success');
   closeModal('modal-edit-shop');
   renderSellerDashboard();
 }
 
-// Customer Inquiries Inbox
 function renderSellerInquiries() {
   const inqs = window.store.inquiries.filter(i => i.shopId === currentSellerShopId);
   const container = document.getElementById('seller-inquiries-list');
-  document.getElementById('inquiries-count-badge').textContent = `${inqs.length} Messages`;
-
   if (inqs.length === 0) {
     container.innerHTML = `<p class="text-xs text-slate-400">No buyer messages right now.</p>`;
     return;
   }
 
   container.innerHTML = inqs.map(inq => `
-    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
-      <div class="flex items-center justify-between">
-        <div>
-          <span class="font-bold text-slate-900">${inq.customerName}</span>
-          <span class="text-slate-400 text-[10px] ml-1">regarding '${inq.productName}'</span>
-        </div>
-        <span class="text-[10px] text-slate-400">${inq.date}</span>
+    <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5">
+      <div class="flex justify-between font-bold text-slate-800">
+        <span>${inq.customerName} (re: '${inq.productName}')</span>
+        <span class="text-slate-400 text-[10px]">${inq.date}</span>
       </div>
-      <p class="text-slate-700 bg-white p-2.5 rounded-lg border border-slate-100">${inq.message}</p>
-      ${inq.reply ? `
-        <div class="p-2.5 bg-emerald-50 rounded-lg text-emerald-900 border border-emerald-100">
-          <b>Your Reply:</b> ${inq.reply}
-        </div>
-      ` : `
+      <p class="text-slate-600 bg-white p-2 rounded">${inq.message}</p>
+      ${inq.reply ? `<p class="text-emerald-800 bg-emerald-50 p-2 rounded"><b>Your reply:</b> ${inq.reply}</p>` : `
         <div class="flex gap-2">
-          <input type="text" id="reply-input-${inq.id}" placeholder="Type your reply to customer..." class="flex-1 p-2 rounded-lg border border-slate-200 outline-none text-xs">
-          <button onclick="handleReplyInquiry('${inq.id}')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs">Reply</button>
+          <input type="text" id="reply-input-${inq.id}" placeholder="Reply..." class="flex-1 p-1.5 rounded border border-slate-200 text-xs">
+          <button onclick="handleReplyInquiry('${inq.id}')" class="px-3 py-1 bg-slate-900 text-white rounded text-xs font-bold">Reply</button>
         </div>
       `}
     </div>
@@ -1368,8 +1252,187 @@ function renderSellerInquiries() {
 function handleReplyInquiry(inquiryId) {
   const input = document.getElementById(`reply-input-${inquiryId}`);
   if (!input || !input.value.trim()) return;
-
   window.store.replyInquiry(inquiryId, input.value.trim());
   showToast('Reply sent to customer!', 'success');
   renderSellerInquiries();
+}
+
+// ==================== VIEW 3: ADMIN PORTAL CONTROLLER ====================
+function renderAdminPortal() {
+  const analytics = window.store.getAdminAnalytics();
+
+  document.getElementById('admin-stat-gmv').textContent = `₹${analytics.totalGMV.toLocaleString()}`;
+  document.getElementById('admin-stat-commission').textContent = `₹${analytics.platformCommission.toLocaleString()}`;
+  document.getElementById('admin-stat-orders').textContent = analytics.totalOrders;
+  document.getElementById('admin-stat-sellers').textContent = analytics.totalSellers;
+  document.getElementById('admin-stat-verified-count').textContent = `${analytics.verifiedSellers} Verified`;
+  document.getElementById('admin-stat-products').textContent = analytics.totalProducts;
+  document.getElementById('admin-stat-units').textContent = analytics.totalUnits;
+
+  // Render Neighborhood chart
+  renderAdminNeighborhoodChart(analytics.neighborhoods);
+
+  // Render Seller Governance Table
+  renderAdminSellersTable();
+
+  // Render Product Moderation Table
+  renderAdminProductsTable();
+}
+
+function renderAdminNeighborhoodChart(neighborhoodData) {
+  const ctx = document.getElementById('admin-neighborhood-chart')?.getContext('2d');
+  if (!ctx) return;
+
+  if (adminNeighborhoodChart) adminNeighborhoodChart.destroy();
+  adminNeighborhoodChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: neighborhoodData.labels,
+      datasets: [{
+        label: 'Gross Merchandise Value (₹)',
+        data: neighborhoodData.data,
+        backgroundColor: ['#7c3aed', '#10b981', '#3b82f6', '#f59e0b', '#ec4899'],
+        borderRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+function renderAdminSellersTable() {
+  const shops = window.store.shops;
+  const tbody = document.getElementById('admin-sellers-table-body');
+  document.getElementById('admin-sellers-count-badge').textContent = `${shops.length} Registered Merchants`;
+
+  tbody.innerHTML = shops.map(shop => {
+    const prods = window.store.getProducts({ shopId: shop.id });
+
+    return `
+      <tr class="hover:bg-slate-50 transition-colors">
+        <td class="px-5 py-3.5 flex items-center gap-3">
+          <img src="${shop.avatar}" class="w-10 h-10 rounded-xl object-cover shadow-2xs">
+          <div>
+            <span class="font-bold text-slate-900 block">${shop.name}</span>
+            <span class="text-slate-400 text-[10px]">${shop.address}</span>
+          </div>
+        </td>
+        <td class="px-5 py-3.5">
+          <span class="font-bold text-slate-800 block">${shop.owner}</span>
+          <span class="text-slate-400 text-[10px]">${shop.phone}</span>
+        </td>
+        <td class="px-5 py-3.5 font-medium text-slate-600">${shop.neighborhood}</td>
+        <td class="px-5 py-3.5 font-bold text-amber-500">⭐ ${shop.rating} (${shop.reviewCount})</td>
+        <td class="px-5 py-3.5 font-semibold text-slate-700">${prods.length} items</td>
+        <td class="px-5 py-3.5">
+          ${shop.verified 
+            ? `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1 w-max">
+                 <i class="fa-solid fa-circle-check"></i> Verified Merchant
+               </span>`
+            : `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700 w-max block">
+                 Unverified
+               </span>`
+          }
+        </td>
+        <td class="px-5 py-3.5 text-right space-x-2">
+          <button onclick="adminToggleVerifyShop('${shop.id}')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+            shop.verified ? 'bg-amber-100 hover:bg-amber-200 text-amber-900' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs'
+          }">
+            ${shop.verified ? 'Revoke Badge' : 'Award Verified Badge'}
+          </button>
+          <button onclick="adminToggleShopStatus('${shop.id}')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+            shop.suspended ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 hover:bg-rose-200 text-rose-800'
+          }">
+            ${shop.suspended ? 'Reinstate' : 'Suspend'}
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function adminToggleVerifyShop(shopId) {
+  const isNowVerified = window.store.toggleVerifyShop(shopId);
+  const shop = window.store.getShop(shopId);
+  showToast(`${shop?.name} is now ${isNowVerified ? 'Verified Local Merchant!' : 'Unverified.'}`, 'admin');
+  renderAdminPortal();
+}
+
+function adminToggleShopStatus(shopId) {
+  const isSuspended = window.store.toggleShopStatus(shopId);
+  const shop = window.store.getShop(shopId);
+  showToast(`${shop?.name} has been ${isSuspended ? 'SUSPENDED from marketplace.' : 'REINSTATED.'}`, 'admin');
+  renderAdminPortal();
+}
+
+function renderAdminProductsTable() {
+  const products = window.store.products;
+  const tbody = document.getElementById('admin-products-table-body');
+
+  tbody.innerHTML = products.map(p => {
+    const shop = window.store.getShop(p.shopId);
+
+    return `
+      <tr class="hover:bg-slate-50 transition-colors">
+        <td class="px-5 py-3.5 flex items-center gap-2.5 font-bold text-slate-900">
+          <img src="${p.image}" class="w-8 h-8 rounded-lg object-cover">
+          <span>${p.name}</span>
+        </td>
+        <td class="px-5 py-3.5 text-slate-600">${shop?.name || 'Local Seller'}</td>
+        <td class="px-5 py-3.5 uppercase text-[10px] font-bold text-slate-500">${p.category}</td>
+        <td class="px-5 py-3.5 font-bold text-slate-900">₹${p.price}</td>
+        <td class="px-5 py-3.5 font-semibold text-slate-700">${p.stock} units</td>
+        <td class="px-5 py-3.5">
+          ${p.adminFeatured ? `
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">
+              ⭐ Featured
+            </span>
+          ` : `<span class="text-slate-400 text-[10px]">Standard</span>`}
+        </td>
+        <td class="px-5 py-3.5 text-right space-x-1">
+          <button onclick="adminToggleFeatureProduct('${p.id}')" class="px-2.5 py-1 rounded-lg text-xs font-bold ${
+            p.adminFeatured ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+          }">
+            ${p.adminFeatured ? 'Unfeature' : 'Feature ⭐'}
+          </button>
+          <button onclick="adminDeleteProduct('${p.id}')" class="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold">
+            Remove
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function adminToggleFeatureProduct(productId) {
+  const isFeatured = window.store.toggleFeatureProduct(productId);
+  const prod = window.store.getProduct(productId);
+  showToast(`'${prod?.name}' is ${isFeatured ? 'featured on the homepage!' : 'unfeatured.'}`, 'admin');
+  renderAdminProductsTable();
+}
+
+function adminDeleteProduct(productId) {
+  if (confirm('Admin Action: Remove this product from the public catalog?')) {
+    window.store.deleteProduct(productId);
+    showToast('Product removed by Administrator.', 'admin');
+    renderAdminProductsTable();
+  }
+}
+
+function handleAdminBroadcastSubmit(e) {
+  e.preventDefault();
+  const text = document.getElementById('admin-broadcast-text').value.trim();
+  if (!text) return;
+
+  window.store.setPlatformAnnouncement(text);
+  document.getElementById('platform-announcement-text').textContent = text;
+  document.getElementById('admin-broadcast-text').value = '';
+  showToast('City broadcast announcement updated for all shoppers!', 'admin');
 }

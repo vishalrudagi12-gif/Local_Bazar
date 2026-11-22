@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LocalBazar — The Hyperlocal E-Commerce Marketplace</title>
+  <title>LocalBazar — Hyperlocal Marketplace (Customer · Seller · Admin)</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -20,39 +20,42 @@
               800: '#065f46',
               900: '#064e3b',
             },
-            amber: {
-              400: '#fbbf24',
-              500: '#f59e0b',
+            admin: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              600: '#7c3aed',
+              700: '#6d28d9',
+              900: '#4c1d95',
             }
           }
         }
       }
     }
   </script>
-  <!-- FontAwesome & Lucide Icons -->
+  <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <!-- Chart.js for Seller Analytics -->
+  <!-- Chart.js for Seller & Admin Analytics -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Canvas Confetti for Order Placement -->
+  <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <!-- Custom CSS -->
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
 
-  <!-- Top Announcement Bar -->
-  <div class="bg-brand-900 text-brand-100 text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-2">
-    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-brand-500 text-white">Hyperlocal</span>
-    <span>Supporting 30+ neighborhood bakeries, artisans, organic farms & makers in your city. Orders under 5km delivered in 45 mins!</span>
-    <button onclick="switchView('seller-portal')" class="underline hover:text-white ml-2 font-bold hidden sm:inline">Are you a local business? Join as Seller →</button>
+  <!-- Top Announcement Bar (Configurable by Admin) -->
+  <div class="bg-slate-900 text-white text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-2" id="platform-announcement-bar">
+    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-brand-500 text-white">City Fair Trade</span>
+    <span id="platform-announcement-text">🎉 Welcome to LocalBazar: Free hyperlocal delivery on all neighbourhood orders this week!</span>
+    <button onclick="openAuthModal()" class="underline hover:text-brand-300 ml-2 font-bold hidden sm:inline">Switch Persona (Customer / Seller / Admin) →</button>
   </div>
 
   <!-- Main Navigation Header -->
   <header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16 gap-4">
+      <div class="flex items-center justify-between h-16 gap-3 sm:gap-4">
         
-        <!-- Logo & Location Badge -->
+        <!-- Logo & City Area Selector -->
         <div class="flex items-center gap-3">
           <a href="#" onclick="switchView('marketplace')" class="flex items-center gap-2 group">
             <span class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white text-xl shadow-md shadow-brand-500/20 group-hover:scale-105 transition-transform">
@@ -65,9 +68,9 @@
           </a>
 
           <!-- Locality Selector -->
-          <div class="hidden md:flex items-center text-xs bg-slate-100 rounded-lg px-2.5 py-1.5 border border-slate-200">
+          <div class="hidden lg:flex items-center text-xs bg-slate-100 rounded-lg px-2.5 py-1.5 border border-slate-200">
             <i class="fa-solid fa-location-dot text-brand-600 mr-1.5"></i>
-            <span class="text-slate-500 mr-1">City Area:</span>
+            <span class="text-slate-500 mr-1">Area:</span>
             <select id="header-neighborhood-select" onchange="onNeighborhoodChange(this.value)" class="bg-transparent font-semibold text-slate-700 outline-none cursor-pointer">
               <!-- Rendered via JS -->
             </select>
@@ -75,101 +78,114 @@
         </div>
 
         <!-- Search Bar -->
-        <div class="flex-1 max-w-lg hidden sm:block">
+        <div class="flex-1 max-w-md hidden md:block">
           <div class="relative">
-            <input type="text" id="global-search-input" placeholder="Search artisan sourdough, pottery, raw honey, soaps..." 
-                   class="w-full bg-slate-100 text-sm text-slate-800 rounded-full pl-10 pr-4 py-2 border border-slate-200 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all">
-            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-            <button onclick="clearSearch()" id="clear-search-btn" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
+            <input type="text" id="global-search-input" placeholder="Search sourdough, pottery, raw honey, linen..." 
+                   class="w-full bg-slate-100 text-xs text-slate-800 rounded-full pl-9 pr-4 py-2 border border-slate-200 focus:bg-white focus:border-brand-500 outline-none transition-all">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
           </div>
         </div>
 
-        <!-- Navigation Actions -->
-        <div class="flex items-center gap-2 sm:gap-3">
-          
-          <!-- Mode Switcher (Buyer vs Seller) -->
-          <div class="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200 text-xs font-semibold">
-            <button id="nav-btn-marketplace" onclick="switchView('marketplace')" class="px-3 py-1.5 rounded-lg transition-all bg-white text-slate-900 shadow-sm">
-              <i class="fa-solid fa-store mr-1 text-brand-600"></i> Shop Local
-            </button>
-            <button id="nav-btn-seller" onclick="switchView('seller-portal')" class="px-3 py-1.5 rounded-lg transition-all text-slate-600 hover:text-slate-900">
-              <i class="fa-solid fa-chart-line mr-1 text-slate-500"></i> Seller Hub
-            </button>
-          </div>
+        <!-- 3-Role View Switcher Navigation Tabs -->
+        <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+          <button id="nav-btn-marketplace" onclick="switchView('marketplace')" class="px-2.5 sm:px-3 py-1.5 rounded-lg transition-all bg-white text-slate-900 shadow-sm flex items-center gap-1">
+            <i class="fa-solid fa-store text-brand-600"></i>
+            <span class="hidden sm:inline">Customer</span>
+          </button>
+          <button id="nav-btn-seller" onclick="switchView('seller-portal')" class="px-2.5 sm:px-3 py-1.5 rounded-lg transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1">
+            <i class="fa-solid fa-shop text-amber-500"></i>
+            <span class="hidden sm:inline">Seller Hub</span>
+          </button>
+          <button id="nav-btn-admin" onclick="switchView('admin-portal')" class="px-2.5 sm:px-3 py-1.5 rounded-lg transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1">
+            <i class="fa-solid fa-shield-halved text-purple-600"></i>
+            <span class="hidden sm:inline">Admin</span>
+          </button>
+        </div>
 
-          <!-- Cart Drawer Button -->
+        <!-- Right Side: User Profile & Basket Actions -->
+        <div class="flex items-center gap-2">
+          
+          <!-- Active Character Profile Pill & Switcher -->
+          <button onclick="openAuthModal()" class="flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-left transition-colors">
+            <img id="header-user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" class="w-6 h-6 rounded-full object-cover">
+            <div class="hidden xl:block">
+              <span id="header-user-name" class="block text-xs font-bold text-slate-900 leading-tight">Aditi Rao</span>
+              <span id="header-user-role" class="block text-[9px] font-bold text-emerald-700 uppercase tracking-wider">Customer</span>
+            </div>
+            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+          </button>
+
+          <!-- Basket Drawer Button -->
           <button onclick="toggleCartDrawer(true)" class="relative p-2 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-colors">
-            <i class="fa-solid fa-bag-shopping text-xl"></i>
-            <span id="cart-badge-count" class="absolute -top-1 -right-1 bg-brand-600 text-white text-[11px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow">
+            <i class="fa-solid fa-bag-shopping text-lg"></i>
+            <span id="cart-badge-count" class="absolute -top-1 -right-1 bg-brand-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow">
               0
             </span>
           </button>
 
           <!-- Customer Orders Button -->
           <button onclick="openCustomerOrdersModal()" title="View My Orders" class="p-2 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-colors hidden sm:inline-flex">
-            <i class="fa-regular fa-clipboard text-lg"></i>
+            <i class="fa-regular fa-clipboard text-base"></i>
           </button>
+
         </div>
 
       </div>
     </div>
   </header>
 
-  <!-- Mobile Search Bar (Visible on mobile screens) -->
-  <div class="sm:hidden px-4 py-2 bg-white border-b border-slate-200">
+  <!-- Mobile Search Bar -->
+  <div class="md:hidden px-4 py-2 bg-white border-b border-slate-200">
     <div class="relative">
-      <input type="text" id="mobile-search-input" placeholder="Search local finds, shops, crafts..." 
+      <input type="text" id="mobile-search-input" placeholder="Search local finds, bakeries, crafts..." 
              class="w-full bg-slate-100 text-xs text-slate-800 rounded-lg pl-8 pr-3 py-2 border border-slate-200 outline-none">
       <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
     </div>
   </div>
 
-  <!-- Notification Toast Container -->
+  <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 left-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-  <!-- ==================== VIEW 1: BUYER MARKETPLACE ==================== -->
+  <!-- ==================== VIEW 1: CUSTOMER MARKETPLACE ==================== -->
   <main id="view-marketplace" class="view-section flex-1">
     
     <!-- Hero Banner -->
-    <section class="relative bg-gradient-to-b from-brand-50 via-emerald-50/40 to-slate-50 border-b border-slate-200/80 py-10 sm:py-14 overflow-hidden">
+    <section class="relative bg-gradient-to-b from-brand-50 via-emerald-50/40 to-slate-50 border-b border-slate-200/80 py-8 sm:py-12 overflow-hidden">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           
           <div class="lg:col-span-7">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-100 text-brand-800 text-xs font-semibold mb-4">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-100 text-brand-800 text-xs font-semibold mb-3">
               <span class="w-2 h-2 rounded-full bg-brand-600 animate-pulse"></span>
-              Live Hyperlocal Network
+              City-Wide Local Artisan Network
             </div>
             <h1 class="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
               Shop Your City.<br>
-              <span class="bg-gradient-to-r from-brand-600 to-emerald-500 bg-clip-text text-transparent">Support Real Neighbours.</span>
+              <span class="bg-gradient-to-r from-brand-600 to-emerald-500 bg-clip-text text-transparent">Empower Local Enterprises.</span>
             </h1>
-            <p class="mt-4 text-slate-600 text-base sm:text-lg max-w-xl leading-relaxed">
-              Skip anonymous big-box warehouses. Get oven-fresh sourdough, small-batch ceramics, organic farm harvest, and handloom apparel straight from independent makers near you.
+            <p class="mt-3 text-slate-600 text-sm sm:text-base max-w-xl leading-relaxed">
+              Discover wood-fired artisan bakeries, hand-thrown ceramics, regenerative organic farms, and handmade textiles within minutes of your home.
             </p>
 
-            <!-- Quick stats pills -->
-            <div class="mt-6 flex flex-wrap gap-3 text-xs font-semibold text-slate-700">
-              <div class="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-slate-200">
-                <i class="fa-solid fa-clock text-brand-600"></i> Same-Day Local Delivery
+            <div class="mt-5 flex flex-wrap gap-2.5 text-xs font-semibold text-slate-700">
+              <div class="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-2xs border border-slate-200">
+                <i class="fa-solid fa-truck-fast text-brand-600"></i> Same-Day Hyperlocal Delivery
               </div>
-              <div class="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-slate-200">
+              <div class="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-2xs border border-slate-200">
                 <i class="fa-solid fa-store text-brand-600"></i> Free In-Store Pickup
               </div>
-              <div class="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-slate-200">
-                <i class="fa-solid fa-handshake-angle text-brand-600"></i> 100% Direct to Sellers
+              <div class="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-2xs border border-slate-200">
+                <i class="fa-solid fa-scale-balanced text-brand-600"></i> Side-by-Side Comparison
               </div>
             </div>
           </div>
 
-          <!-- Hero Interactive Card Preview -->
+          <!-- Hero Spotlight Card -->
           <div class="lg:col-span-5">
             <div class="glass p-5 rounded-2xl shadow-xl border border-white/60 space-y-4">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-bold uppercase tracking-wider text-brand-700">Neighborhood Spotlight</span>
-                <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">⭐ Top Rated</span>
+                <span class="text-xs font-bold uppercase tracking-wider text-brand-700">Artisan Spotlight</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">⭐ Top Rated Merchant</span>
               </div>
               <div class="flex items-center gap-3">
                 <img src="https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=150&q=80" class="w-14 h-14 rounded-xl object-cover shadow-sm">
@@ -182,8 +198,8 @@
                 </div>
               </div>
               <div class="p-3 bg-brand-50/80 rounded-xl border border-brand-100/60 text-xs text-brand-900">
-                <p class="font-medium">📢 Elena's morning note:</p>
-                <p class="text-slate-600 mt-0.5">"Fresh cardamom buns and heirloom sourdough just pulled from the oven at 8:30 AM!"</p>
+                <p class="font-medium">📢 Elena's morning bakery note:</p>
+                <p class="text-slate-600 mt-0.5">"Cardamom morning buns and heirloom sourdough just pulled from the oven at 8:30 AM!"</p>
               </div>
               <div class="flex gap-2">
                 <button onclick="openShopDetailsModal('shop-1')" class="flex-1 py-2 px-3 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all text-center">
@@ -197,26 +213,26 @@
       </div>
     </section>
 
-    <!-- Hyperlocal Category Filter Bar -->
+    <!-- Category Filter Bar -->
     <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-5 relative z-20">
       <div class="bg-white rounded-2xl p-3 shadow-lg border border-slate-200 flex items-center justify-between gap-3 overflow-x-auto no-scrollbar" id="category-pills-container">
         <!-- Rendered by JS -->
       </div>
     </section>
 
-    <!-- Personalized Recommendation Carousels -->
+    <!-- Recommendations Carousels -->
     <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
       
-      <!-- Trending in Your Neighborhood Section -->
-      <div class="mb-10">
+      <!-- Trending in Your Neighborhood -->
+      <div class="mb-8">
         <div class="flex items-center justify-between mb-4">
           <div>
             <div class="flex items-center gap-2">
               <span class="text-xl">🔥</span>
-              <h2 class="text-xl font-bold text-slate-900">Trending in Your Neighborhood</h2>
-              <span class="text-xs font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">High Demand</span>
+              <h2 class="text-lg sm:text-xl font-bold text-slate-900">Trending in Your Neighborhood</h2>
+              <span class="text-xs font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">High Velocity</span>
             </div>
-            <p class="text-xs text-slate-500 mt-0.5">Most ordered local finds around you in the last 48 hours</p>
+            <p class="text-xs text-slate-500 mt-0.5">Most ordered local finds around your city area</p>
           </div>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="recommendations-trending-grid">
@@ -224,16 +240,16 @@
         </div>
       </div>
 
-      <!-- Personalized Category Affinity Section -->
-      <div class="mb-10 bg-gradient-to-r from-brand-50/60 to-emerald-50/40 p-5 rounded-2xl border border-brand-100">
+      <!-- Personalized Category Affinity -->
+      <div class="mb-8 bg-gradient-to-r from-brand-50/60 to-emerald-50/40 p-5 rounded-2xl border border-brand-100">
         <div class="flex items-center justify-between mb-4">
           <div>
             <div class="flex items-center gap-2">
               <span class="text-xl">✨</span>
-              <h2 class="text-xl font-bold text-slate-900">Handcrafted Picks For You</h2>
-              <span class="text-xs font-semibold bg-brand-100 text-brand-800 px-2 py-0.5 rounded-full" id="recommendation-badge-reason">Based on your taste</span>
+              <h2 class="text-lg sm:text-xl font-bold text-slate-900">Handcrafted Picks For You</h2>
+              <span class="text-xs font-semibold bg-brand-100 text-brand-800 px-2 py-0.5 rounded-full">Personalized</span>
             </div>
-            <p class="text-xs text-slate-500 mt-0.5">Curated artisanal selections matching your recent shopping activity</p>
+            <p class="text-xs text-slate-500 mt-0.5">Curated selections matching your shopping and browsing taste</p>
           </div>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="recommendations-curated-grid">
@@ -243,13 +259,12 @@
 
     </section>
 
-    <!-- Main Browse Section: Controls & Catalog -->
-    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" id="marketplace-catalog">
+    <!-- Main Catalog: Controls & Grid -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6" id="marketplace-catalog">
       
-      <!-- Filter & Sort Toolbar -->
       <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
         
-        <!-- Left: View Mode Toggle (Products vs Shops) -->
+        <!-- Toggle: Products vs Shops -->
         <div class="flex items-center gap-2">
           <div class="bg-slate-100 p-1 rounded-lg flex text-xs font-bold">
             <button id="tab-btn-products" onclick="setCatalogTab('products')" class="px-3 py-1.5 rounded-md bg-white text-slate-900 shadow-sm">
@@ -261,13 +276,12 @@
           </div>
         </div>
 
-        <!-- Right: Filters & Sorting Dropdowns -->
+        <!-- Filters & Sorting -->
         <div class="flex flex-wrap items-center gap-3 text-xs">
           
-          <!-- Distance Filter -->
           <div class="flex items-center bg-slate-100 rounded-lg px-2.5 py-1.5 border border-slate-200">
             <i class="fa-solid fa-route text-slate-400 mr-1.5"></i>
-            <span class="text-slate-500 mr-1">Max Distance:</span>
+            <span class="text-slate-500 mr-1">Radius:</span>
             <select id="filter-distance" onchange="onFilterChange()" class="bg-transparent font-semibold text-slate-700 outline-none cursor-pointer">
               <option value="">Any distance</option>
               <option value="2">Within 2 km (Walking)</option>
@@ -276,7 +290,6 @@
             </select>
           </div>
 
-          <!-- Fulfillment Filter -->
           <div class="flex items-center bg-slate-100 rounded-lg px-2.5 py-1.5 border border-slate-200">
             <i class="fa-solid fa-truck-fast text-slate-400 mr-1.5"></i>
             <span class="text-slate-500 mr-1">Fulfillment:</span>
@@ -287,7 +300,6 @@
             </select>
           </div>
 
-          <!-- Sort Dropdown -->
           <div class="flex items-center bg-slate-100 rounded-lg px-2.5 py-1.5 border border-slate-200">
             <i class="fa-solid fa-arrow-down-wide-short text-slate-400 mr-1.5"></i>
             <span class="text-slate-500 mr-1">Sort:</span>
@@ -302,13 +314,6 @@
 
         </div>
 
-      </div>
-
-      <!-- Active Filters Summary Pill row -->
-      <div id="active-filters-bar" class="flex flex-wrap items-center gap-2 mb-4 text-xs hidden">
-        <span class="text-slate-400 font-medium">Filtering by:</span>
-        <div id="active-filter-tags" class="flex flex-wrap gap-2"></div>
-        <button onclick="resetAllFilters()" class="text-brand-600 font-semibold hover:underline ml-2">Clear all</button>
       </div>
 
       <!-- PRODUCTS CONTAINER -->
@@ -329,10 +334,9 @@
 
   </main>
 
-  <!-- ==================== VIEW 2: SELLER PORTAL & DASHBOARD ==================== -->
+  <!-- ==================== VIEW 2: SELLER PORTAL ==================== -->
   <section id="view-seller-portal" class="view-section flex-1 hidden bg-slate-100/60 pb-16">
     
-    <!-- Seller Header Subnav -->
     <div class="bg-white border-b border-slate-200 sticky top-16 z-30 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
         
@@ -343,183 +347,125 @@
           <div>
             <div class="flex items-center gap-2">
               <h2 class="text-base font-bold text-slate-900" id="seller-shop-name-display">The Crust & Crumb Bakery</h2>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Verified Seller</span>
+              <span id="seller-verified-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Verified Seller</span>
             </div>
             <p class="text-xs text-slate-500">Elena Rostova · Downtown Arts Quarter</p>
           </div>
         </div>
 
-        <!-- Dashboard Action Buttons -->
         <div class="flex items-center gap-2">
-          <button onclick="openAddProductModal()" class="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5">
+          <button onclick="openAddProductModal()" class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5">
             <i class="fa-solid fa-plus"></i> Add Product
           </button>
           <button onclick="openAnnouncementModal()" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1.5">
-            <i class="fa-solid fa-bullhorn text-brand-600"></i> Post Announcement
+            <i class="fa-solid fa-bullhorn text-brand-600"></i> Announcement
           </button>
           <button onclick="openEditShopModal()" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1.5">
-            <i class="fa-solid fa-pen-to-square"></i> Edit Store Identity
-          </button>
-          <button onclick="switchView('marketplace')" class="px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 text-xs font-medium">
-            Exit to Storefront →
+            <i class="fa-solid fa-pen-to-square"></i> Store Profile
           </button>
         </div>
 
       </div>
     </div>
 
-    <!-- Seller Dashboard Content -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
       
-      <!-- Performance Analytics Metric Cards -->
+      <!-- Metrics Cards -->
       <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="flex items-center justify-between text-slate-400 mb-1">
-            <span class="text-xs font-medium">Total Revenue</span>
-            <i class="fa-solid fa-indian-rupee-sign text-emerald-500 text-xs"></i>
-          </div>
+          <span class="text-xs font-medium text-slate-400 block mb-1">Total Revenue</span>
           <p class="text-xl font-extrabold text-slate-900" id="stat-revenue">₹0</p>
-          <span class="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-1">
-            <i class="fa-solid fa-arrow-trend-up"></i> +18.4% this week
-          </span>
+          <span class="text-[10px] text-emerald-600 font-bold block mt-1">+18.4% this week</span>
         </div>
-
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="flex items-center justify-between text-slate-400 mb-1">
-            <span class="text-xs font-medium">Orders Placed</span>
-            <i class="fa-solid fa-bag-shopping text-blue-500 text-xs"></i>
-          </div>
+          <span class="text-xs font-medium text-slate-400 block mb-1">Orders Placed</span>
           <p class="text-xl font-extrabold text-slate-900" id="stat-orders">0</p>
           <span class="text-[10px] text-slate-400 font-medium block mt-1">100% fulfilled</span>
         </div>
-
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="flex items-center justify-between text-slate-400 mb-1">
-            <span class="text-xs font-medium">Units Sold</span>
-            <i class="fa-solid fa-boxes-stacked text-purple-500 text-xs"></i>
-          </div>
+          <span class="text-xs font-medium text-slate-400 block mb-1">Units Sold</span>
           <p class="text-xl font-extrabold text-slate-900" id="stat-units">0</p>
-          <span class="text-[10px] text-slate-400 font-medium block mt-1">Across 3 categories</span>
+          <span class="text-[10px] text-slate-400 font-medium block mt-1">Local customers</span>
         </div>
-
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="flex items-center justify-between text-slate-400 mb-1">
-            <span class="text-xs font-medium">Avg. Order Value</span>
-            <i class="fa-solid fa-receipt text-amber-500 text-xs"></i>
-          </div>
+          <span class="text-xs font-medium text-slate-400 block mb-1">Average Order</span>
           <p class="text-xl font-extrabold text-slate-900" id="stat-aov">₹0</p>
           <span class="text-[10px] text-slate-400 font-medium block mt-1">Per transaction</span>
         </div>
-
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="flex items-center justify-between text-slate-400 mb-1">
-            <span class="text-xs font-medium">Active Products</span>
-            <i class="fa-solid fa-cubes text-slate-500 text-xs"></i>
-          </div>
+          <span class="text-xs font-medium text-slate-400 block mb-1">Active Catalog</span>
           <p class="text-xl font-extrabold text-slate-900" id="stat-products">0</p>
-          <span class="text-[10px] text-emerald-600 font-medium block mt-1">All in catalog</span>
+          <span class="text-[10px] text-emerald-600 font-medium block mt-1">Listed products</span>
         </div>
-
         <div class="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/40 shadow-sm">
-          <div class="flex items-center justify-between text-amber-700 mb-1">
-            <span class="text-xs font-bold">Low Stock Warning</span>
-            <i class="fa-solid fa-triangle-exclamation text-amber-500 text-xs"></i>
-          </div>
+          <span class="text-xs font-bold text-amber-700 block mb-1">Low Stock (≤5)</span>
           <p class="text-xl font-extrabold text-amber-900" id="stat-low-stock">0</p>
-          <span class="text-[10px] text-amber-700 font-semibold block mt-1">Items with ≤ 5 units</span>
+          <span class="text-[10px] text-amber-700 font-semibold block mt-1">Needs Restocking</span>
         </div>
-
       </div>
 
-      <!-- Charts Section (7-Day Sales Trend & Category Breakdown) -->
+      <!-- Charts -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <!-- Revenue Trend Chart -->
         <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div class="flex items-center justify-between mb-4">
-            <div>
-              <h3 class="text-sm font-bold text-slate-900">7-Day Sales & Revenue Trend</h3>
-              <p class="text-xs text-slate-400">Daily sales performance from neighbourhood customers</p>
-            </div>
-            <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Live Data
-            </span>
+            <h3 class="text-sm font-bold text-slate-900">7-Day Sales & Revenue Trend</h3>
+            <span class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">Live</span>
           </div>
           <div class="chart-container">
             <canvas id="seller-revenue-chart"></canvas>
           </div>
         </div>
-
-        <!-- Category Distribution Chart -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div>
-            <h3 class="text-sm font-bold text-slate-900">Catalog Distribution</h3>
-            <p class="text-xs text-slate-400">Products by category share</p>
+            <h3 class="text-sm font-bold text-slate-900">Catalog Category Share</h3>
             <div class="chart-container mt-4" style="height: 190px;">
               <canvas id="seller-category-chart"></canvas>
             </div>
           </div>
-          <div class="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>Customer Rating:</span>
-            <span class="font-bold text-amber-500 flex items-center gap-1">⭐ 4.95 / 5.0 (99.2% positive)</span>
+          <div class="pt-3 border-t border-slate-100 text-xs text-amber-500 font-bold">
+            ⭐ 4.95 / 5.0 Local Rating
           </div>
         </div>
-
       </div>
 
-      <!-- Order Processing & Fulfillment Hub (Status Pipeline) -->
+      <!-- Orders Pipeline -->
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-              <span>Order Processing & Fulfillment Pipeline</span>
-              <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-brand-100 text-brand-800" id="active-orders-count">3 Active</span>
-            </h3>
-            <p class="text-xs text-slate-400 mt-0.5">Manage incoming orders, update stages, and notify local customers</p>
+            <h3 class="text-base font-bold text-slate-900">Order Fulfillment Pipeline</h3>
+            <p class="text-xs text-slate-400">Advance orders from confirmation to packing and delivery</p>
           </div>
-          
-          <!-- Order status filter buttons -->
           <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-semibold">
             <button onclick="filterSellerOrders('all')" class="order-filter-btn px-2.5 py-1 rounded bg-white text-slate-900 shadow-sm">All</button>
             <button onclick="filterSellerOrders('confirmed')" class="order-filter-btn px-2.5 py-1 rounded text-slate-600 hover:text-slate-900">New</button>
             <button onclick="filterSellerOrders('ready')" class="order-filter-btn px-2.5 py-1 rounded text-slate-600 hover:text-slate-900">Ready</button>
-            <button onclick="filterSellerOrders('delivered')" class="order-filter-btn px-2.5 py-1 rounded text-slate-600 hover:text-slate-900">Completed</button>
+            <button onclick="filterSellerOrders('delivered')" class="order-filter-btn px-2.5 py-1 rounded text-slate-600 hover:text-slate-900">Delivered</button>
           </div>
         </div>
-
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs">
             <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
               <tr>
                 <th class="px-5 py-3">Order ID</th>
-                <th class="px-5 py-3">Customer & Contact</th>
-                <th class="px-5 py-3">Items & Quantity</th>
-                <th class="px-5 py-3">Fulfillment & Address</th>
-                <th class="px-5 py-3">Total (₹)</th>
-                <th class="px-5 py-3">Current Status</th>
+                <th class="px-5 py-3">Customer</th>
+                <th class="px-5 py-3">Items</th>
+                <th class="px-5 py-3">Fulfillment</th>
+                <th class="px-5 py-3">Total</th>
+                <th class="px-5 py-3">Status</th>
                 <th class="px-5 py-3 text-right">Update Pipeline</th>
               </tr>
             </thead>
-            <tbody id="seller-orders-table-body" class="divide-y divide-slate-100 font-medium">
-              <!-- Rendered via JS -->
-            </tbody>
+            <tbody id="seller-orders-table-body" class="divide-y divide-slate-100 font-medium"></tbody>
           </table>
         </div>
       </div>
 
-      <!-- Product & Inventory Management Table -->
+      <!-- Products Inventory -->
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h3 class="text-base font-bold text-slate-900">Product & Inventory Management</h3>
-            <p class="text-xs text-slate-400 mt-0.5">Live stock counts with automatic deduction on purchase</p>
-          </div>
-          <button onclick="openAddProductModal()" class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5">
-            <i class="fa-solid fa-plus"></i> Add New Product
-          </button>
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+          <h3 class="text-base font-bold text-slate-900">Real-Time Inventory Management</h3>
+          <button onclick="openAddProductModal()" class="px-3 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-bold">+ Add Product</button>
         </div>
-
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs">
             <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
@@ -527,35 +473,270 @@
                 <th class="px-5 py-3">Product</th>
                 <th class="px-5 py-3">Category</th>
                 <th class="px-5 py-3">Price</th>
-                <th class="px-5 py-3">Stock Count</th>
-                <th class="px-5 py-3">Sales Count</th>
-                <th class="px-5 py-3">Fulfillment</th>
-                <th class="px-5 py-3 text-right">Quick Stock Actions</th>
+                <th class="px-5 py-3">Stock Units</th>
+                <th class="px-5 py-3">Sales</th>
+                <th class="px-5 py-3 text-right">Quick Restock</th>
               </tr>
             </thead>
-            <tbody id="seller-products-table-body" class="divide-y divide-slate-100 font-medium">
-              <!-- Rendered via JS -->
-            </tbody>
+            <tbody id="seller-products-table-body" class="divide-y divide-slate-100 font-medium"></tbody>
           </table>
         </div>
       </div>
 
-      <!-- Customer Inquiries & Q&A Box -->
+      <!-- Inquiries Inbox -->
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-        <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-slate-900 mb-3">Customer Q&A & Inquiries Inbox</h3>
+        <div class="space-y-3" id="seller-inquiries-list"></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ==================== VIEW 3: ADMIN PORTAL ==================== -->
+  <section id="view-admin-portal" class="view-section flex-1 hidden bg-slate-100/70 pb-16">
+    
+    <!-- Admin Subnav -->
+    <div class="bg-slate-900 text-white sticky top-16 z-30 shadow-md">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <span class="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-sm">
+            <i class="fa-solid fa-shield-halved"></i>
+          </span>
           <div>
-            <h3 class="text-base font-bold text-slate-900">Customer Engagement & Inquiries</h3>
-            <p class="text-xs text-slate-400 mt-0.5">Direct questions from buyers regarding custom orders, ingredients, or pickup times</p>
+            <h2 class="text-sm font-bold">City Marketplace Administration & Governance</h2>
+            <p class="text-[11px] text-slate-400">Vikram Rathore · City Commerce Regulatory Council</p>
           </div>
-          <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800" id="inquiries-count-badge">2 Messages</span>
         </div>
-        <div class="space-y-3" id="seller-inquiries-list">
-          <!-- Rendered via JS -->
+        <div class="flex items-center gap-2">
+          <span class="px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-bold border border-purple-500/30">
+            🛡️ Super Admin Access
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
+      
+      <!-- Platform Overview Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <span class="text-xs font-medium text-slate-400 block mb-1">City-Wide GMV</span>
+          <p class="text-xl font-extrabold text-slate-900" id="admin-stat-gmv">₹0</p>
+          <span class="text-[10px] text-emerald-600 font-bold block mt-1">Gross Merchandise Vol</span>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-purple-200 bg-purple-50/40 shadow-sm">
+          <span class="text-xs font-bold text-purple-900 block mb-1">Platform Commission</span>
+          <p class="text-xl font-extrabold text-purple-700" id="admin-stat-commission">₹0</p>
+          <span class="text-[10px] text-purple-600 font-bold block mt-1">5% Fair Trade Fee</span>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <span class="text-xs font-medium text-slate-400 block mb-1">Total City Orders</span>
+          <p class="text-xl font-extrabold text-slate-900" id="admin-stat-orders">0</p>
+          <span class="text-[10px] text-slate-400 font-medium block mt-1">All neighbourhoods</span>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <span class="text-xs font-medium text-slate-400 block mb-1">Registered Sellers</span>
+          <p class="text-xl font-extrabold text-slate-900" id="admin-stat-sellers">0</p>
+          <span class="text-[10px] text-emerald-600 font-medium block mt-1" id="admin-stat-verified-count">0 Verified</span>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <span class="text-xs font-medium text-slate-400 block mb-1">Products Listed</span>
+          <p class="text-xl font-extrabold text-slate-900" id="admin-stat-products">0</p>
+          <span class="text-[10px] text-slate-400 font-medium block mt-1">Active in catalog</span>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <span class="text-xs font-medium text-slate-400 block mb-1">City-Wide Units</span>
+          <p class="text-xl font-extrabold text-slate-900" id="admin-stat-units">0</p>
+          <span class="text-[10px] text-slate-400 font-medium block mt-1">Delivered locally</span>
+        </div>
+      </div>
+
+      <!-- City Distribution Chart & Platform Broadcast Banner -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Neighborhood Revenue Share Chart -->
+        <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Neighbourhood Economic Activity & Volume</h3>
+              <p class="text-xs text-slate-400">Total gross merchandise value by city district</p>
+            </div>
+            <span class="text-xs font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700">Analytics</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="admin-neighborhood-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Global Announcement Broadcast Tool -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 class="text-sm font-bold text-slate-900 mb-1">City Broadcast Banner</h3>
+            <p class="text-xs text-slate-400 mb-3">Broadcast platform-wide notifications seen by all shoppers & merchants</p>
+            <form onsubmit="handleAdminBroadcastSubmit(event)" class="space-y-3">
+              <textarea id="admin-broadcast-text" rows="3" required class="w-full p-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-purple-600" placeholder="Type city-wide announcement..."></textarea>
+              <button type="submit" class="w-full py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-sm">
+                Update Broadcast Banner
+              </button>
+            </form>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-3 pt-3 border-t border-slate-100">
+            Current banner appears at top of every user's screen.
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Seller Verification & Compliance Table -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Seller Verification & Compliance Governance</h3>
+            <p class="text-xs text-slate-400">Audit small enterprise documents and award official "Verified Local Merchant" status</p>
+          </div>
+          <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700" id="admin-sellers-count-badge">6 Sellers</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
+              <tr>
+                <th class="px-5 py-3">Shop / Business</th>
+                <th class="px-5 py-3">Owner & Contact</th>
+                <th class="px-5 py-3">Neighbourhood</th>
+                <th class="px-5 py-3">Customer Rating</th>
+                <th class="px-5 py-3">Catalog Size</th>
+                <th class="px-5 py-3">Verification Badge</th>
+                <th class="px-5 py-3 text-right">Admin Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-sellers-table-body" class="divide-y divide-slate-100 font-medium"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Product Catalog Moderation & Featured Curation -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Catalog Moderation & Homepage Curation</h3>
+            <p class="text-xs text-slate-400">Award "⭐ Admin Choice" badges to promote artisanal excellence</p>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
+              <tr>
+                <th class="px-5 py-3">Product Name</th>
+                <th class="px-5 py-3">Seller</th>
+                <th class="px-5 py-3">Category</th>
+                <th class="px-5 py-3">Price</th>
+                <th class="px-5 py-3">Stock Units</th>
+                <th class="px-5 py-3">Featured Badge</th>
+                <th class="px-5 py-3 text-right">Moderation</th>
+              </tr>
+            </thead>
+            <tbody id="admin-products-table-body" class="divide-y divide-slate-100 font-medium"></tbody>
+          </table>
         </div>
       </div>
 
     </div>
   </section>
+
+  <!-- ==================== MODAL: DEDICATED LOGIN & ROLE SWITCHER ==================== -->
+  <div id="modal-auth" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 p-6 sm:p-8">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full">Role Authentication</span>
+          <h3 class="text-xl font-extrabold text-slate-900 mt-1">Choose Your Character / Role</h3>
+          <p class="text-xs text-slate-500">Test the marketplace as a Customer, a Small Enterprise Seller, or the City Admin</p>
+        </div>
+        <button onclick="closeModal('modal-auth')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Quick 1-Click Character Login Cards -->
+      <div class="mt-6 space-y-3">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">⚡ Quick 1-Click Persona Login:</span>
+        
+        <!-- Character 1: Customer -->
+        <button onclick="loginAs('customer')" class="w-full text-left p-3.5 rounded-2xl border border-slate-200 hover:border-brand-500 hover:bg-brand-50/40 transition-all flex items-center justify-between group">
+          <div class="flex items-center gap-3">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80" class="w-11 h-11 rounded-xl object-cover shadow-2xs">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-sm text-slate-900">Aditi Rao</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Customer</span>
+              </div>
+              <p class="text-xs text-slate-500">aditi@localbazar.com · Neighbourhood Resident & Foodie</p>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-brand-600 group-hover:translate-x-1 transition-transform">Login as Buyer →</span>
+        </button>
+
+        <!-- Character 2: Seller -->
+        <button onclick="loginAs('seller')" class="w-full text-left p-3.5 rounded-2xl border border-slate-200 hover:border-amber-500 hover:bg-amber-50/40 transition-all flex items-center justify-between group">
+          <div class="flex items-center gap-3">
+            <img src="https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=150&q=80" class="w-11 h-11 rounded-xl object-cover shadow-2xs">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-sm text-slate-900">Elena Rostova</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Seller / Merchant</span>
+              </div>
+              <p class="text-xs text-slate-500">elena@crustcrumb.local · Owner, The Crust & Crumb Bakery</p>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-amber-600 group-hover:translate-x-1 transition-transform">Login as Seller →</span>
+        </button>
+
+        <!-- Character 3: Admin -->
+        <button onclick="loginAs('admin')" class="w-full text-left p-3.5 rounded-2xl border border-slate-200 hover:border-purple-500 hover:bg-purple-50/40 transition-all flex items-center justify-between group">
+          <div class="flex items-center gap-3">
+            <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80" class="w-11 h-11 rounded-xl object-cover shadow-2xs">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-sm text-slate-900">Vikram Rathore</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">Platform Admin</span>
+              </div>
+              <p class="text-xs text-slate-500">admin@localbazar.gov · City Marketplace Director</p>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-purple-600 group-hover:translate-x-1 transition-transform">Login as Admin →</span>
+        </button>
+      </div>
+
+      <!-- Custom Login Form Accordion -->
+      <div class="mt-6 pt-5 border-t border-slate-200">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-3">Or Sign In with Credentials:</span>
+        <form onsubmit="handleCustomLogin(event)" class="space-y-3 text-xs">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Email Address</label>
+            <input type="email" id="auth-email-input" required placeholder="name@domain.com" class="w-full p-2.5 rounded-xl border border-slate-200 outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Password</label>
+            <input type="password" id="auth-password-input" required placeholder="••••••••" value="password123" class="w-full p-2.5 rounded-xl border border-slate-200 outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Select Persona Role</label>
+            <select id="auth-role-select" class="w-full p-2.5 rounded-xl border border-slate-200 outline-none bg-white font-semibold">
+              <option value="customer">Customer (Shop Local)</option>
+              <option value="seller">Seller (Manage Bakery/Shop)</option>
+              <option value="admin">Platform Admin (City Governance)</option>
+            </select>
+          </div>
+          <button type="submit" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm transition-all">
+            Continue to Account
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
 
   <!-- ==================== FLOATING PRODUCT COMPARISON DOCK ==================== -->
   <div id="compare-floating-dock" class="fixed bottom-6 right-6 z-40 hidden">
@@ -566,12 +747,12 @@
         </span>
         <div>
           <span class="text-xs font-bold text-slate-900 block">Compare Local Options</span>
-          <span class="text-[10px] text-slate-400 block">Compare up to 3 products side-by-side</span>
+          <span class="text-[10px] text-slate-400 block">Up to 3 products side-by-side</span>
         </div>
       </div>
       <div class="flex items-center gap-2">
         <button onclick="openComparisonModal()" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5">
-          <i class="fa-solid fa-code-compare text-brand-400"></i> View Comparison Table
+          <i class="fa-solid fa-code-compare text-brand-400"></i> View Table
         </button>
         <button onclick="clearCompareList()" title="Clear Comparison" class="p-2 text-slate-400 hover:text-slate-600 text-xs">
           <i class="fa-solid fa-trash-can"></i>
@@ -580,15 +761,11 @@
     </div>
   </div>
 
-  <!-- ==================== MODAL: PRODUCT COMPARISON MODAL ==================== -->
+  <!-- ==================== MODAL: PRODUCT COMPARISON ==================== -->
   <div id="modal-comparison" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200">
-      
       <div class="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
         <div>
-          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-brand-100 text-brand-800 text-xs font-bold mb-1">
-            <i class="fa-solid fa-scale-balanced"></i> Smart Buyer Tool
-          </div>
           <h3 class="text-xl font-extrabold text-slate-900">Side-by-Side Product Comparison</h3>
           <p class="text-xs text-slate-500">Compare pricing, distance, ingredients, and local seller credentials</p>
         </div>
@@ -596,47 +773,35 @@
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
-
-      <div class="p-6" id="comparison-modal-content">
-        <!-- Rendered via JS -->
-      </div>
-
+      <div class="p-6" id="comparison-modal-content"></div>
     </div>
   </div>
 
-  <!-- ==================== MODAL: SHOP STOREFRONT MODAL ==================== -->
+  <!-- ==================== MODAL: SHOP STOREFRONT ==================== -->
   <div id="modal-shop-details" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200" id="shop-details-container">
-      <!-- Rendered via JS -->
-    </div>
+    <div class="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200" id="shop-details-container"></div>
   </div>
 
-  <!-- ==================== MODAL: PRODUCT DETAILS & INQUIRY MODAL ==================== -->
+  <!-- ==================== MODAL: PRODUCT DETAILS ==================== -->
   <div id="modal-product-details" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200" id="product-details-container">
-      <!-- Rendered via JS -->
-    </div>
+    <div class="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200" id="product-details-container"></div>
   </div>
 
   <!-- ==================== MODAL: ADD / EDIT PRODUCT ==================== -->
   <div id="modal-product-form" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 p-6">
-      
       <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
         <h3 class="text-lg font-bold text-slate-900" id="product-form-title">Add Local Product</h3>
         <button onclick="closeModal('modal-product-form')" class="text-slate-400 hover:text-slate-600">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
-
       <form id="seller-product-form" onsubmit="handleProductFormSubmit(event)" class="space-y-4 text-xs font-medium">
         <input type="hidden" id="form-product-id">
-        
         <div>
           <label class="block text-slate-700 font-bold mb-1">Product Title *</label>
           <input type="text" id="form-product-name" required placeholder="e.g. Sourdough Loaf, Glazed Bowl" class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none">
         </div>
-
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-slate-700 font-bold mb-1">Category *</label>
@@ -651,17 +816,16 @@
           </div>
           <div>
             <label class="block text-slate-700 font-bold mb-1">Unit / Size *</label>
-            <input type="text" id="form-product-unit" required placeholder="e.g. 800g loaf, 320ml mug" class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none">
+            <input type="text" id="form-product-unit" required placeholder="e.g. 800g loaf" class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none">
           </div>
         </div>
-
         <div class="grid grid-cols-3 gap-3">
           <div>
             <label class="block text-slate-700 font-bold mb-1">Price (₹) *</label>
             <input type="number" id="form-product-price" required min="1" step="1" placeholder="240" class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none">
           </div>
           <div>
-            <label class="block text-slate-700 font-bold mb-1">Original Price (₹)</label>
+            <label class="block text-slate-700 font-bold mb-1">Original (₹)</label>
             <input type="number" id="form-product-orig-price" min="1" step="1" placeholder="280" class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none">
           </div>
           <div>
@@ -669,29 +833,19 @@
             <input type="number" id="form-product-stock" required min="0" placeholder="15" class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none">
           </div>
         </div>
-
         <div>
           <label class="block text-slate-700 font-bold mb-1">Product Image URL</label>
           <input type="url" id="form-product-image" placeholder="https://images.unsplash.com/..." class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none">
-          <p class="text-[10px] text-slate-400 mt-1">Leave empty to use a curated category default image</p>
         </div>
-
         <div>
           <label class="block text-slate-700 font-bold mb-1">Description *</label>
-          <textarea id="form-product-desc" required rows="3" placeholder="Tell buyers about your process, fermentation time, materials..." class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none"></textarea>
+          <textarea id="form-product-desc" required rows="3" class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none"></textarea>
         </div>
-
-        <div>
-          <label class="block text-slate-700 font-bold mb-1">Ingredients / Materials</label>
-          <input type="text" id="form-product-ingredients" placeholder="e.g. Heirloom wheat, mineral glazes, organic cotton" class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none">
-        </div>
-
         <div class="pt-2 flex justify-end gap-2">
           <button type="button" onclick="closeModal('modal-product-form')" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100">Cancel</button>
           <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold shadow-sm">Save & Publish</button>
         </div>
       </form>
-
     </div>
   </div>
 
@@ -704,18 +858,17 @@
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
-      <p class="text-xs text-slate-500 mb-4">Broadcast a note to local shoppers (e.g. fresh bread out of the oven, festive discount, holiday hours).</p>
       <form onsubmit="handleAnnouncementSubmit(event)" class="space-y-4 text-xs font-medium">
-        <textarea id="announcement-text" required rows="3" placeholder="e.g. Just pulled fresh sourdough from the oven! Pre-orders open for weekend brunch..." class="w-full p-3 rounded-xl border border-slate-200 focus:border-brand-500 outline-none"></textarea>
+        <textarea id="announcement-text" required rows="3" placeholder="e.g. Fresh bread pulled from oven..." class="w-full p-3 rounded-xl border border-slate-200 focus:border-brand-500 outline-none"></textarea>
         <div class="flex justify-end gap-2">
           <button type="button" onclick="closeModal('modal-announcement')" class="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Cancel</button>
-          <button type="submit" class="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-bold shadow-sm">Post to Storefront</button>
+          <button type="submit" class="px-4 py-1.5 rounded-lg bg-brand-600 text-white font-bold">Post Announcement</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- ==================== MODAL: EDIT SHOP STORE IDENTITY ==================== -->
+  <!-- ==================== MODAL: EDIT SHOP ==================== -->
   <div id="modal-edit-shop" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 p-6">
       <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
@@ -727,33 +880,29 @@
       <form id="edit-shop-form" onsubmit="handleEditShopSubmit(event)" class="space-y-4 text-xs font-medium">
         <div>
           <label class="block text-slate-700 font-bold mb-1">Business Name *</label>
-          <input type="text" id="edit-shop-name" required class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none">
+          <input type="text" id="edit-shop-name" required class="w-full p-2.5 rounded-xl border border-slate-200 outline-none">
         </div>
         <div>
           <label class="block text-slate-700 font-bold mb-1">Tagline</label>
-          <input type="text" id="edit-shop-tagline" class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none">
+          <input type="text" id="edit-shop-tagline" class="w-full p-2.5 rounded-xl border border-slate-200 outline-none">
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-slate-700 font-bold mb-1">WhatsApp Phone (no +)</label>
-            <input type="text" id="edit-shop-whatsapp" placeholder="919876543210" class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none">
+            <label class="block text-slate-700 font-bold mb-1">WhatsApp Phone</label>
+            <input type="text" id="edit-shop-whatsapp" placeholder="919876543210" class="w-full p-2.5 rounded-xl border border-slate-200 outline-none">
           </div>
           <div>
-            <label class="block text-slate-700 font-bold mb-1">Instagram Handle</label>
-            <input type="text" id="edit-shop-instagram" placeholder="@crustcrumb_local" class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none">
+            <label class="block text-slate-700 font-bold mb-1">Hours</label>
+            <input type="text" id="edit-shop-hours" placeholder="Tue-Sun: 7am - 4pm" class="w-full p-2.5 rounded-xl border border-slate-200 outline-none">
           </div>
         </div>
         <div>
-          <label class="block text-slate-700 font-bold mb-1">Operating Hours</label>
-          <input type="text" id="edit-shop-hours" placeholder="Tue - Sun: 7:00 AM - 4:00 PM" class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none">
-        </div>
-        <div>
-          <label class="block text-slate-700 font-bold mb-1">Our Story (Craft origin, values)</label>
-          <textarea id="edit-shop-story" rows="3" class="w-full p-2.5 rounded-xl border border-slate-200 focus:border-brand-500 outline-none"></textarea>
+          <label class="block text-slate-700 font-bold mb-1">Our Artisan Story</label>
+          <textarea id="edit-shop-story" rows="3" class="w-full p-2.5 rounded-xl border border-slate-200 outline-none"></textarea>
         </div>
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" onclick="closeModal('modal-edit-shop')" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100">Cancel</button>
-          <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold shadow-sm">Save Changes</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 text-white font-bold">Save Changes</button>
         </div>
       </form>
     </div>
@@ -771,17 +920,13 @@
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
-      <div id="customer-orders-list" class="space-y-4">
-        <!-- Rendered via JS -->
-      </div>
+      <div id="customer-orders-list" class="space-y-4"></div>
     </div>
   </div>
 
   <!-- ==================== CART & CHECKOUT SLIDE-OUT DRAWER ==================== -->
   <div id="cart-drawer-overlay" onclick="toggleCartDrawer(false)" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden transition-opacity"></div>
   <div id="cart-drawer" class="fixed top-0 right-0 bottom-0 w-full max-w-md bg-white z-50 shadow-2xl flex flex-col transform translate-x-full transition-transform duration-300">
-    
-    <!-- Cart Header -->
     <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
       <div class="flex items-center gap-2">
         <i class="fa-solid fa-bag-shopping text-brand-600"></i>
@@ -791,16 +936,8 @@
         <i class="fa-solid fa-xmark"></i>
       </button>
     </div>
-
-    <!-- Cart Body -->
-    <div class="flex-1 overflow-y-auto p-5" id="cart-drawer-items">
-      <!-- Items rendered via JS -->
-    </div>
-
-    <!-- Cart Footer / Checkout Form -->
+    <div class="flex-1 overflow-y-auto p-5" id="cart-drawer-items"></div>
     <div class="p-5 border-t border-slate-200 bg-slate-50 space-y-4" id="cart-drawer-footer">
-      
-      <!-- Delivery Mode Selector -->
       <div>
         <label class="block text-xs font-bold text-slate-700 mb-1.5">Fulfillment Method:</label>
         <div class="grid grid-cols-2 gap-2 text-xs font-semibold">
@@ -820,15 +957,11 @@
           </label>
         </div>
       </div>
-
-      <!-- Address / Customer info -->
       <div class="space-y-2 text-xs">
         <input type="text" id="checkout-customer-name" placeholder="Your Name" value="Aditi Rao" class="w-full p-2.5 rounded-xl border border-slate-200 outline-none">
         <input type="text" id="checkout-customer-phone" placeholder="Phone Number" value="+91 99887 66554" class="w-full p-2.5 rounded-xl border border-slate-200 outline-none">
-        <textarea id="checkout-customer-address" placeholder="Delivery Address / Apartment / Street" rows="2" class="w-full p-2.5 rounded-xl border border-slate-200 outline-none">Flat 402, Lotus Court, Arts Quarter</textarea>
+        <textarea id="checkout-customer-address" placeholder="Delivery Address" rows="2" class="w-full p-2.5 rounded-xl border border-slate-200 outline-none">Flat 402, Lotus Court, Arts Quarter</textarea>
       </div>
-
-      <!-- Price Breakdown -->
       <div class="space-y-1.5 text-xs text-slate-600 pt-2 border-t border-slate-200">
         <div class="flex justify-between">
           <span>Subtotal</span>
@@ -843,62 +976,21 @@
           <span class="text-brand-700" id="checkout-total">₹0</span>
         </div>
       </div>
-
-      <!-- Checkout Button -->
       <button onclick="handlePlaceOrder()" class="w-full py-3 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-extrabold shadow-lg shadow-brand-500/25 transition-all flex items-center justify-center gap-2">
         <span>Place Order Now</span>
         <i class="fa-solid fa-arrow-right"></i>
       </button>
-
-      <p class="text-[10px] text-center text-slate-400">
-        🔒 Simulated instant checkout. Direct support to your local neighborhood merchants.
-      </p>
     </div>
-
   </div>
 
   <!-- Footer -->
-  <footer class="bg-white border-t border-slate-200 mt-auto py-10">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-        <div class="md:col-span-2">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center text-base">
-              <i class="fa-solid fa-basket-shopping"></i>
-            </span>
-            <span class="text-lg font-bold text-slate-900">Local<span class="text-brand-600">Bazar</span></span>
-          </div>
-          <p class="text-xs text-slate-500 max-w-sm leading-relaxed">
-            Empowering small enterprises and artisans to build a powerful digital identity, manage inventory in real time, and deliver fresh, authentic products to neighbourhood homes.
-          </p>
-        </div>
-        <div>
-          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3">Neighbourhoods</h4>
-          <ul class="text-xs text-slate-500 space-y-2">
-            <li>Downtown Arts Quarter</li>
-            <li>Greenfield Farmers Market</li>
-            <li>Old Town Heritage Lane</li>
-            <li>Westside Commons</li>
-            <li>Riverside Promenade</li>
-          </ul>
-        </div>
-        <div>
-          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3">For Small Businesses</h4>
-          <ul class="text-xs text-slate-500 space-y-2">
-            <li><button onclick="switchView('seller-portal')" class="text-brand-600 font-bold hover:underline">Seller Dashboard</button></li>
-            <li>Real-Time Inventory Sync</li>
-            <li>Order Fulfillment Pipeline</li>
-            <li>Customer Engagement & Inquiries</li>
-          </ul>
-        </div>
-      </div>
-      <div class="pt-6 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
-        <p>© 2026 LocalBazar. Built for resilient, sustainable local community commerce.</p>
-        <div class="flex items-center gap-4">
-          <span class="inline-flex items-center gap-1.5 text-emerald-600 font-semibold">
-            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> All Local Services Operational
-          </span>
-        </div>
+  <footer class="bg-white border-t border-slate-200 mt-auto py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center sm:flex sm:justify-between sm:items-center text-xs text-slate-400">
+      <p>© 2026 LocalBazar. Built for resilient, sustainable local community commerce.</p>
+      <div class="mt-2 sm:mt-0 flex justify-center gap-4">
+        <button onclick="loginAs('customer')" class="hover:text-brand-600">Customer Mode</button>
+        <button onclick="loginAs('seller')" class="hover:text-amber-600">Seller Mode</button>
+        <button onclick="loginAs('admin')" class="hover:text-purple-600">Admin Mode</button>
       </div>
     </div>
   </footer>
